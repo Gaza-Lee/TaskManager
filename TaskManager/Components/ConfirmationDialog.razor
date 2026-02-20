@@ -1,0 +1,24 @@
+<div class="modal fade show d-block" style="background: rgba(0,0,0,0.6);" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="glass-card border-white border-opacity-10 p-4 w-100">
+            <h3 class="h3 text-white mb-2">@Title</h3>
+            <p class="text-detail mb-4">@Message</p>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-light flex-grow-1 py-1 text-micro fw-bold" @onclick="OnCancel">
+                    CANCEL
+                </button>
+                <button class="btn btn-primary flex-grow-1 py-1 text-micro fw-bold" @onclick="OnConfirm">
+                    @ConfirmText
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Confirm Action";
+    [Parameter] public string Message { get; set; } = "Are you sure you want to proceed?";
+    [Parameter] public string ConfirmText { get; set; } = "YES";
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

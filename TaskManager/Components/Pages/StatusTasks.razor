@@ -1,0 +1,81 @@
+@page "/tasks/{Status}"
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject NavigationManager Navigation
+
+<PageTitle>@Status Tasks - Task Hub</PageTitle>
+
+<div class="container pb-5">
+    <div class="row mb-5">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center mb-2">
+                <button class="btn btn-link p-0 text-muted me-3" @onclick='() => Navigation.NavigateTo("/")'>
+                    <i class="bi bi-arrow-left fs-4"></i>
+                </button>
+                <h1 class="display-5 fw-bold mb-0">@FormattedStatus Tasks</h1>
+            </div>
+            <p class="text-muted fs-5 ms-5">Viewing all tasks currently in the '@FormattedStatus' state.</p>
+        </div>
+    </div>
+
+    @if (_filteredTasks == null)
+    {
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!_filteredTasks.Any())
+    {
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-inbox display-1 text-muted mb-4 d-block"></i>
+            <p class="fs-4 text-muted">No tasks found with "@FormattedStatus" status.</p>
+            <button class="btn btn-primary mt-3" @onclick='() => Navigation.NavigateTo("/assign-task")'>
+                Create New Task
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var task in _filteredTasks)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <TaskCard Task="task" OnStatusChanged="LoadTasks" />
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Status { get; set; } = "";
+    private List<TaskItem>? _filteredTasks;
+
+    private string FormattedStatus => Status switch
+    {
+        "InProgress" => "In Progress",
+        _ => Status
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        var allTasks = await TaskService.GetTasksAsync();
+        
+        Enum.TryParse<TaskItemStatus>(Status, out var targetStatus);
+        
+        _filteredTasks = allTasks
+            .Where(t => t.Status == targetStatus)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToList();
+            
+        StateHasChanged();
+    }
+}

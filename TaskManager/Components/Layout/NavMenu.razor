@@ -1,30 +1,126 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">TaskManager</a>
+﻿@using System.Linq
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid justify-content-between px-3">
+        <a class="navbar-brand fw-bold d-flex align-items-center" href="">
+            <div class="brand-icon me-2">
+                <i class="bi bi-layers-fill text-primary"></i>
+            </div>
+            <span class="ls-tight">Task Hub</span>
+        </a>
     </div>
 </div>
 
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
+    <nav class="nav flex-column px-2 mt-4">
+        <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <i class="bi bi-grid-1x2 me-3"></i>
+                <span>Dashboard</span>
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+        <div class="nav-item">
+            <NavLink class="nav-link" href="my-tasks">
+                <i class="bi bi-person-badge me-3"></i>
+                <span>My Task</span>
+                @if (_myTasksCount > 0)
+                {
+                    <span class="badge rounded-pill bg-primary ms-auto" style="font-size: 0.65rem; padding: 0.25rem 0.5rem; opacity: 0.9;">
+                        @_myTasksCount
+                    </span>
+                }
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+        @if (!string.IsNullOrEmpty(_userName))
+        {
+            <div class="nav-item">
+                <NavLink class="nav-link" href="notifications">
+                    <i class="bi bi-bell me-3"></i>
+                    <span>Notifications</span>
+                    @if (_unreadCount > 0)
+                    {
+                        <span class="badge rounded-pill bg-danger ms-auto shadow-glow pulse" 
+                              style="font-size: 0.65rem; padding: 0.25rem 0.5rem;">
+                            @_unreadCount
+                        </span>
+                    }
+                </NavLink>
+            </div>
+        }
+
+        <div class="nav-item mt-2">
+            <NavLink class="nav-link btn-assignment rounded-pill" href="assign-task">
+                <i class="bi bi-plus-lg me-2"></i>
+                <span class="small fw-bold text-uppercase">Create Task</span>
             </NavLink>
         </div>
     </nav>
+
+    <div class="user-pill-container mt-auto px-4 pb-4">
+        <div class="glass-card py-2 px-3 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center overflow-hidden">
+                <i class="bi bi-person-circle text-primary me-2 flex-shrink-0"></i>
+                <span class="xx-small text-white fw-bold text-truncate" title="@_userName">@(_userName ?? "Guest")</span>
+            </div>
+            <a href="set-name" class="text-white text-decoration-none hover-white ms-2" title="Change Name">
+                <i class="bi bi-pencil-square small"></i>
+            </a>
+        </div>
+    </div>
 </div>
+
+@implements IDisposable
+
+@code {
+    private string? _userName;
+    private int _unreadCount;
+    private int _myTasksCount;
+
+    [Inject] private UserIdentityService UserIdentity { get; set; } = default!;
+    [Inject] private INotificationService NotificationService { get; set; } = default!;
+    [Inject] private ITaskService TaskService { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            UserIdentity.OnUserChanged += HandleUserChanged;
+            NotificationService.OnNotificationsChanged += HandleNotificationsChanged;
+            _userName = await UserIdentity.GetCurrentUserAsync();
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        if (string.IsNullOrEmpty(_userName)) return;
+        _unreadCount = await NotificationService.GetUnreadCountAsync(_userName);
+        
+        var tasks = await TaskService.GetTasksForUserAsync(_userName);
+        _myTasksCount = tasks.Count(t => t.Status != TaskItemStatus.Completed);
+    }
+
+    private async void HandleUserChanged()
+    {
+        _userName = await UserIdentity.GetCurrentUserAsync();
+        await LoadData();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void HandleNotificationsChanged()
+    {
+        await LoadData();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        UserIdentity.OnUserChanged -= HandleUserChanged;
+        NotificationService.OnNotificationsChanged -= HandleNotificationsChanged;
+    }
+}
 

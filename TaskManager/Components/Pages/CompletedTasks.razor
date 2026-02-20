@@ -1,0 +1,83 @@
+@page "/tasks/completed"
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject UserIdentityService UserIdentity
+@inject NavigationManager Navigation
+
+<PageTitle>Completed Tasks - Task Hub</PageTitle>
+
+<div class="container pb-5">
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <button class="btn btn-outline-light border-0 p-0 text-muted" @onclick='() => Navigation.NavigateTo("/")'>
+                    <i class="bi bi-arrow-left h4"></i>
+                </button>
+                <div>
+                    <h1 class="h1 mb-0 text-white">Completed Tasks</h1>
+                    <p class="text-micro mb-0">Finalized and archived work items.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-auto d-flex align-items-center">
+            <span class="badge bg-success px-3 py-2 status-badge">@(_tasks?.Count ?? 0) tasks</span>
+        </div>
+    </div>
+
+    @if (_tasks == null)
+    {
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!_tasks.Any())
+    {
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-check-circle display-1 text-muted mb-4 d-block"></i>
+            <p class="fs-4 text-white">No completed tasks yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var task in _tasks)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <TaskCard Task="task" OnStatusChanged="LoadTasks" />
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<TaskItem>? _tasks;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var user = await UserIdentity.GetCurrentUserAsync();
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                Navigation.NavigateTo("/set-name");
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        var all = await TaskService.GetTasksAsync();
+        _tasks = all.Where(t => t.Status == TaskItemStatus.Completed)
+                    .OrderByDescending(t => t.CompletedAt)
+                    .ToList();
+    }
+}

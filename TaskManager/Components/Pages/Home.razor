@@ -1,7 +1,156 @@
 ﻿@page "/"
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject UserIdentityService UserIdentity
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard - Task Hub</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container pb-5">
+    <div class="row mb-5">
+        <div class="col-lg-8">
+            <h1 class="h1 mb-1">Team Dashboard</h1>
+            <p class="text-detail">Real-time overview of active and completed initiatives.</p>
+        </div>
+        <div class="col-lg-4 d-flex align-items-center">
+            <input type="text" class="form-control" placeholder="Search tasks..." 
+                   @bind="_searchQuery" @bind:event="oninput" @onkeyup="HandleSearch" />
+        </div>
+    </div>
 
-Welcome to your new app.
+    @if (_tasks == null)
+    {
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+
+        <div class="row g-4 mb-5">
+            <!-- Available Tasks Card -->
+            <div class="col-lg-4">
+                <StatusPreviewCard 
+                    Title="Available" 
+                    Description="Tasks waiting to be picked up." 
+                    Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.Available).ToList())"
+                    HrefPath="/tasks/available" />
+            </div>
+
+            <!-- In Progress Tasks Card -->
+            <div class="col-lg-4">
+                <StatusPreviewCard 
+                    Title="In Progress" 
+                    Description="Tasks currently being worked on." 
+                    Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.InProgress).ToList())"
+                    HrefPath="/tasks/inprogress" />
+            </div>
+
+            <!-- Completed Tasks Card -->
+            <div class="col-lg-4">
+                <StatusPreviewCard 
+                    Title="Completed" 
+                    Description="Finalized and archived tasks." 
+                    Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.Completed).OrderByDescending(t => t.CompletedAt).ToList())"
+                    HrefPath="/tasks/completed" />
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="glass-card">
+                    <h2 class="h3 border-bottom border-white border-opacity-10 pb-3 mb-3 d-flex align-items-center text-white">
+                        <i class="bi bi-activity me-2 text-primary"></i> Recent Activity
+                    </h2>
+                    
+                    @if (!_tasks.Any())
+                    {
+                        <div class="text-center py-3 text-muted x-small">
+                            No recent activity found.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var task in _tasks.OrderByDescending(t => t.Status == TaskItemStatus.Completed ? t.CompletedAt : t.CreatedAt).Take(8))
+                        {
+                            <div class="activity-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="text-detail mb-0 text-white fw-bold">@task.Title</div>
+                                    <div class="text-micro mt-1">
+                                        @if (task.Status == TaskItemStatus.Completed)
+                                        {
+                                            <span class="text-success fw-bold me-1"><i class="bi bi-check-circle-fill"></i> Done</span>
+                                        }
+                                        else if (task.NeedsHelp)
+                                        {
+                                            <span class="text-danger fw-bold me-1"><i class="bi bi-exclamation-triangle-fill"></i> Needs Help</span>
+                                        }
+                                        else if (task.Status == TaskItemStatus.InProgress)
+                                        {
+                                            <span class="text-info fw-bold me-1"><i class="bi bi-arrow-repeat"></i> Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-primary fw-bold me-1"><i class="bi bi-plus-circle-fill"></i> New</span>
+                                        }
+                                        <span>@(task.Status == TaskItemStatus.Completed ? task.CompletedAt?.ToString("MMM dd") : task.CreatedAt.ToString("MMM dd"))</span>
+                                        <span class="mx-1">|</span>
+                                        <span>To: @task.AssignedTo</span>
+                                    </div>
+                                </div>
+                                <a href="@GetStatusHref(task.Status)" class="btn btn-sm btn-link text-white-50 p-0 px-2">
+                                    <i class="bi bi-chevron-right text-micro"></i>
+                                </a>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<TaskItem>? _tasks;
+    private string _searchQuery = "";
+    private string? _userName;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _userName = await UserIdentity.GetCurrentUserAsync();
+            if (string.IsNullOrWhiteSpace(_userName))
+            {
+                Navigation.NavigateTo("/set-name");
+            }
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        _tasks = await TaskService.GetTasksAsync();
+    }
+
+    private async Task HandleSearch()
+    {
+        _tasks = await TaskService.SearchTasksAsync(_searchQuery);
+    }
+
+    private static string GetStatusHref(TaskItemStatus status) => status switch
+    {
+        TaskItemStatus.Available  => "/tasks/available",
+        TaskItemStatus.InProgress => "/tasks/inprogress",
+        TaskItemStatus.Completed  => "/tasks/completed",
+        _ => "/"
+    };
+}

@@ -1,0 +1,137 @@
+@using TaskManager.Models
+@using TaskManager.Services
+@inject INotificationService NotificationService
+@inject NavigationManager Navigation
+
+<div class="notification-center position-relative">
+    <button class="btn btn-link text-white position-relative p-0 hover-scale" @onclick="ToggleDropdown">
+        <i class="bi bi-bell fs-5 opacity-75 hover-opacity-1"></i>
+        @if (_unreadCount > 0)
+        {
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger shadow-glow pulse" 
+                  style="font-size: 0.55rem; padding: 0.25rem 0.45rem; border: 1.5px solid var(--bg-dark);">
+                @_unreadCount
+            </span>
+        }
+    </button>
+
+    @if (_showDropdown)
+    {
+        <div class="glass-card position-absolute end-0 mt-2 p-0 shadow-lg border-white border-opacity-10 scale-in" 
+             style="width: 320px; z-index: 1050; max-height: 480px; overflow: hidden; display: flex; flex-direction: column; animation: slideIn 0.2s ease-out;">
+            
+            <div class="p-3 border-bottom border-white border-opacity-10 d-flex justify-content-between align-items-center bg-black bg-opacity-20">
+                <div>
+                    <h3 class="h3 mb-0 text-white">Notifications</h3>
+                    <div class="text-micro text-primary-light">@(_unreadCount) Unread</div>
+                </div>
+            </div>
+
+            <div class="flex-grow-1 overflow-auto custom-scrollbar" style="max-height: 380px;">
+                @if (_notifications == null || !_notifications.Any())
+                {
+                    <div class="p-5 text-center">
+                        <i class="bi bi-bell-slash fs-1 text-muted opacity-25 d-block mb-3"></i>
+                        <p class="text-micro text-white-50">All caught up!</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var notification in _notifications)
+                    {
+                        <div class="notification-item p-3 border-bottom border-white border-opacity-5 hover-bg-white-5 cursor-pointer @(notification.IsRead ? "opacity-50" : "bg-primary bg-opacity-10")"
+                             @onclick="() => HandleNotificationClick(notification)">
+                            <div class="d-flex gap-3">
+                                <div class="flex-shrink-0 mt-1">
+                                    <div class="icon-circle bg-dark bg-opacity-50 rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="bi @GetIcon(notification.Type) @GetIconColor(notification.Type)"></i>
+                                    </div>
+                                </div>
+                                <div class="overflow-hidden">
+                                    <div class="text-detail text-white text-truncate mb-1" title="@notification.Message">@notification.Message</div>
+                                    <div class="text-micro opacity-50">@GetTimeAgo(notification.CreatedAt)</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+            
+            <div class="p-2 text-center border-top border-white border-opacity-10 bg-black bg-opacity-10">
+                <button class="btn btn-link text-micro text-white-50 text-decoration-none" @onclick="() => _showDropdown = false">Close</button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showDropdown)
+{
+    <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1040;" @onclick="() => _showDropdown = false"></div>
+}
+
+@code {
+    [Parameter] public string UserName { get; set; } = "";
+    
+    private List<Notification>? _notifications;
+    private int _unreadCount;
+    private bool _showDropdown;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        if (string.IsNullOrWhiteSpace(UserName)) return;
+        _notifications = await NotificationService.GetNotificationsForUserAsync(UserName);
+        _unreadCount = await NotificationService.GetUnreadCountAsync(UserName);
+    }
+
+    private async void ToggleDropdown()
+    {
+        _showDropdown = !_showDropdown;
+        if (_showDropdown) await LoadData();
+        StateHasChanged();
+    }
+
+    private async Task HandleNotificationClick(Notification notification)
+    {
+        if (!notification.IsRead)
+        {
+            await NotificationService.MarkAsReadAsync(notification.Id);
+            _unreadCount--;
+            notification.IsRead = true;
+        }
+        
+        _showDropdown = false;
+        Navigation.NavigateTo($"/notifications"); 
+    }
+
+    private string GetIcon(NotificationType type) => type switch
+    {
+        NotificationType.RemarkAdded => "bi-chat-dots",
+        NotificationType.TaskReassigned => "bi-person-badge",
+        NotificationType.AuditHelp => "bi-exclamation-triangle",
+        NotificationType.StatusUpdate => "bi-check-circle",
+        _ => "bi-bell"
+    };
+
+    private string GetIconColor(NotificationType type) => type switch
+    {
+        NotificationType.RemarkAdded => "text-primary",
+        NotificationType.TaskReassigned => "text-info",
+        NotificationType.AuditHelp => "text-danger",
+        NotificationType.StatusUpdate => "text-success",
+        _ => "text-white"
+    };
+
+    private string GetTimeAgo(DateTime dt)
+    {
+        var span = DateTime.UtcNow - dt;
+        if (span.TotalMinutes < 1) return "just now";
+        if (span.TotalHours < 1) return $"{(int)span.TotalMinutes}m ago";
+        if (span.TotalDays < 1) return $"{(int)span.TotalHours}h ago";
+        return dt.ToString("MMM dd");
+    }
+}

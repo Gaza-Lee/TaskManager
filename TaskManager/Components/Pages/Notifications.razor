@@ -1,0 +1,159 @@
+@page "/notifications"
+@using TaskManager.Models
+@using TaskManager.Services
+@inject INotificationService NotificationService
+@inject UserIdentityService UserIdentity
+@inject NavigationManager Navigation
+
+<PageTitle>Notifications - Task Hub</PageTitle>
+
+<div class="container pb-5">
+    @if (_userName == null)
+    {
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col d-flex justify-content-between align-items-end">
+                <div>
+                    <h1 class="h1 mb-1">Notifications</h1>
+                    <p class="text-detail">Stay updated on your task activities</p>
+                </div>
+                @if (_notifications != null && _notifications.Any(n => !n.IsRead))
+                {
+                    <button class="btn btn-outline-primary btn-sm rounded-pill px-4 text-micro fw-bold mb-2" @onclick="MarkAllAsRead">
+                        Mark All as Read
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                @if (_notifications == null)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                }
+                else if (!_notifications.Any())
+                {
+                    <div class="glass-card p-5 text-center">
+                        <i class="bi bi-bell-slash fs-1 text-muted opacity-25 d-block mb-3"></i>
+                        <p class="text-detail mb-0">No notifications yet. You're all caught up!</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="glass-card overflow-hidden">
+                        @foreach (var notification in _notifications)
+                        {
+                            <div class="notification-item p-4 border-bottom border-white border-opacity-5 hover-bg-white-5 cursor-pointer @(notification.IsRead ? "opacity-60" : "bg-primary bg-opacity-5 shadow-inner")"
+                                 @onclick="() => HandleNotificationClick(notification)">
+                                <div class="d-flex gap-4 align-items-start">
+                                    <div class="flex-shrink-0">
+                                        <div class="icon-circle bg-dark bg-opacity-50 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                            <i class="bi @GetIcon(notification.Type) @GetIconColor(notification.Type) fs-4"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                            <div class="text-detail text-white fs-5 fw-medium">@notification.Message</div>
+                                            <div class="text-micro opacity-50 ms-3 whitespace-nowrap">@GetTimeAgo(notification.CreatedAt)</div>
+                                        </div>
+                                        <div class="text-micro text-primary-light text-uppercase fw-bold ls-wider">@notification.Type.ToString().Replace("([a-z])([A-Z])", "$1 $2")</div>
+                                    </div>
+                                    @if (!notification.IsRead)
+                                    {
+                                        <div class="flex-shrink-0 ms-2">
+                                            <div class="bg-primary rounded-circle" style="width: 10px; height: 10px;"></div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string? _userName;
+    private List<Notification>? _notifications;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _userName = await UserIdentity.GetCurrentUserAsync();
+            if (string.IsNullOrWhiteSpace(_userName))
+            {
+                Navigation.NavigateTo("/set-name");
+                return;
+            }
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        if (_userName == null) return;
+        _notifications = await NotificationService.GetNotificationsForUserAsync(_userName);
+        // Sort by date descending
+        _notifications = _notifications.OrderByDescending(n => n.CreatedAt).ToList();
+    }
+
+    private async Task HandleNotificationClick(Notification notification)
+    {
+        if (!notification.IsRead)
+        {
+            await NotificationService.MarkAsReadAsync(notification.Id);
+            notification.IsRead = true;
+        }
+        
+        // Navigation logic based on notification type/task
+        Navigation.NavigateTo("/my-tasks"); 
+    }
+
+    private async Task MarkAllAsRead()
+    {
+        if (string.IsNullOrWhiteSpace(_userName)) return;
+        await NotificationService.MarkAllAsReadAsync(_userName);
+        await LoadData();
+    }
+
+    private string GetIcon(NotificationType type) => type switch
+    {
+        NotificationType.RemarkAdded => "bi-chat-dots",
+        NotificationType.TaskReassigned => "bi-person-badge",
+        NotificationType.AuditHelp => "bi-exclamation-triangle",
+        NotificationType.StatusUpdate => "bi-check-circle",
+        _ => "bi-bell"
+    };
+
+    private string GetIconColor(NotificationType type) => type switch
+    {
+        NotificationType.RemarkAdded => "text-primary",
+        NotificationType.TaskReassigned => "text-info",
+        NotificationType.AuditHelp => "text-danger",
+        NotificationType.StatusUpdate => "text-success",
+        _ => "text-white"
+    };
+
+    private string GetTimeAgo(DateTime dt)
+    {
+        var span = DateTime.UtcNow - dt;
+        if (span.TotalMinutes < 1) return "just now";
+        if (span.TotalHours < 1) return $"{(int)span.TotalMinutes}m ago";
+        if (span.TotalDays < 1) return $"{(int)span.TotalHours}h ago";
+        return dt.ToString("MMM dd");
+    }
+}

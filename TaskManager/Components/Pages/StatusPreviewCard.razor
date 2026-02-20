@@ -1,0 +1,48 @@
+@using TaskManager.Models
+
+<a href="@HrefPath" class="text-decoration-none">
+    <div class="glass-card d-flex flex-column h-100">
+        <div class="mb-2">
+            <h2 class="h3 mb-0 text-white">@Title</h2>
+            <p class="text-micro mb-0">@Description</p>
+        </div>
+
+        <div class="latest-tasks flex-grow-1">
+            <div class="preview-task-list">
+                @if (Tasks == null || !Tasks.Any())
+                {
+                    <div class="empty-preview py-2 text-center mt-2">
+                        <span class="text-muted x-small italic">No tasks</span>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var task in Tasks.Take(3))
+                    {
+                        <div class="preview-task-item py-1 border-bottom border-white border-opacity-10 d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center overflow-hidden">
+                                <i class="bi bi-dot @(task.NeedsHelp ? "text-danger" : "text-primary") fs-5 me-0"></i>
+                                <span class="text-white text-micro text-truncate" title="@task.Title">@task.Title</span>
+                            </div>
+                            @if (task.NeedsHelp)
+                            {
+                                <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 0.6rem;"></i>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="mt-auto pt-3 text-center border-top border-white border-opacity-10">
+            <span class="btn-view-all">View All <i class="bi bi-arrow-right ms-1"></i></span>
+        </div>
+    </div>
+</a>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Description { get; set; } = "";
+    [Parameter] public List<TaskItem>? Tasks { get; set; }
+    [Parameter] public string HrefPath { get; set; } = "/";
+}

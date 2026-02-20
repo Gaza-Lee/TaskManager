@@ -1,0 +1,115 @@
+@page "/tasks/inprogress"
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject UserIdentityService UserIdentity
+@inject NavigationManager Navigation
+
+<PageTitle>In Progress Tasks - Task Hub</PageTitle>
+
+<div class="container pb-5">
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <button class="btn btn-outline-light border-0 p-0 text-muted" @onclick='() => Navigation.NavigateTo("/")'>
+                    <i class="bi bi-arrow-left h4"></i>
+                </button>
+                <div>
+                    <h1 class="h1 mb-0 text-white">In Progress Tasks</h1>
+                    <p class="text-micro mb-0">Tasks currently being worked on by your team.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-auto d-flex align-items-center">
+            <span class="badge bg-warning text-dark px-3 py-2 status-badge">@(_tasks?.Count ?? 0) tasks</span>
+        </div>
+    </div>
+
+    @if (_tasks == null)
+    {
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    @{
+        var inProgress = (_tasks ?? new()).ToList();
+        var needingHelp = inProgress.Where(t => t.NeedsHelp).ToList();
+        var onTrack = inProgress.Where(t => !t.NeedsHelp).ToList();
+    }
+
+    @if (needingHelp.Any())
+    {
+        <h2 class="h3 text-white mb-3 d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i> Needs Attention
+            <span class="badge bg-danger text-white ms-2 rounded-pill status-badge">@needingHelp.Count</span>
+        </h2>
+        <div class="row g-4 mb-5">
+            @foreach (var task in needingHelp)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <TaskCard Task="task" OnStatusChanged="LoadTasks" />
+                </div>
+            }
+        </div>
+    }
+
+    @if (onTrack.Any())
+    {
+        @if (needingHelp.Any())
+        {
+            <h2 class="h3 text-white mb-3 d-flex align-items-center mt-4">
+                <i class="bi bi-play-circle-fill me-2 text-primary"></i> On Track
+            </h2>
+        }
+        <div class="row g-4">
+            @foreach (var task in onTrack)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <TaskCard Task="task" OnStatusChanged="LoadTasks" />
+                </div>
+            }
+        </div>
+    }
+
+    @if (_tasks != null && !_tasks.Any())
+    {
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-hourglass display-1 text-muted mb-4 d-block"></i>
+            <p class="fs-4 text-white">No tasks currently in progress.</p>
+            <button class="btn btn-outline-primary mt-3 rounded-pill px-4 text-micro fw-bold" @onclick='() => Navigation.NavigateTo("/tasks/available")'>
+                <i class="bi bi-arrow-up-right me-2"></i>View Available Tasks
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private List<TaskItem>? _tasks;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var user = await UserIdentity.GetCurrentUserAsync();
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                Navigation.NavigateTo("/set-name");
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        var all = await TaskService.GetTasksAsync();
+        _tasks = all.Where(t => t.Status == TaskItemStatus.InProgress)
+                    .OrderByDescending(t => t.CreatedAt)
+                    .ToList();
+    }
+}

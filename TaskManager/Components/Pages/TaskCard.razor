@@ -1,0 +1,362 @@
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject UserIdentityService UserIdentity
+
+<div class="glass-card d-flex flex-column h-100 position-relative">
+
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        @{
+            var statusClass = Task.Status switch {
+                TaskItemStatus.Available => "bg-primary text-primary",
+                TaskItemStatus.InProgress => "bg-info text-info",
+                _ => "bg-success text-success"
+            };
+        }
+        <span class="badge @statusClass bg-opacity-10 border border-opacity-25 rounded-pill px-3 py-2 status-badge">
+            <i class="bi bi-circle-fill me-1 text-micro"></i>@Task.Status
+        </span>
+
+        <div class="d-flex align-items-center gap-2">
+            @if (Task.NeedsHelp)
+            {
+                <span class="badge bg-danger rounded-pill status-badge">Help Needed</span>
+            }
+            <div class="dropdown">
+                <button class="btn btn-link p-0 text-muted" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow border-secondary">
+                    @if (Task.Status != TaskItemStatus.Available)
+                    {
+                        <li><button class="dropdown-item small" @onclick="() => UpdateStatus(TaskItemStatus.Available)">
+                            <i class="bi bi-circle me-2"></i>Move to Available
+                        </button></li>
+                    }
+                    @if (Task.Status != TaskItemStatus.InProgress)
+                    {
+                        <li><button class="dropdown-item small" @onclick="() => UpdateStatus(TaskItemStatus.InProgress)">
+                            <i class="bi bi-arrow-repeat me-2"></i>Move to In Progress
+                        </button></li>
+                    }
+                    @if (Task.Status != TaskItemStatus.Completed)
+                    {
+                        <li><button class="dropdown-item small" @onclick="() => UpdateStatus(TaskItemStatus.Completed)">
+                            <i class="bi bi-check-circle me-2"></i>Move to Completed
+                        </button></li>
+                    }
+                    <li><hr class="dropdown-divider opacity-10"></li>
+                    <li><button class="dropdown-item small text-danger" @onclick="DeleteTask">
+                        <i class="bi bi-trash me-2"></i>Delete Task
+                    </button></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="h3 mb-2 text-white">@Task.Title</h3>
+    <p class="text-micro mb-0" style="line-height: 1.6;">@Task.Description</p>
+
+    @if (Task.NeedsHelp && !string.IsNullOrWhiteSpace(Task.HelpDetails))
+    {
+        <div class="mt-3 p-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-20">
+            <div class="text-micro fw-bold text-danger mb-1 text-uppercase letter-spacing-1">Help Request Details</div>
+            <p class="text-detail text-white mb-0 italic">"@Task.HelpDetails"</p>
+        </div>
+    }
+
+    @if (Task.Status == TaskItemStatus.Completed && !string.IsNullOrWhiteSpace(Task.AuditRemark))
+    {
+        <div class="mt-3 p-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-20">
+            <div class="text-micro fw-bold text-success mb-1 text-uppercase letter-spacing-1">Completion Remark</div>
+            <p class="text-detail text-white mb-0">"@Task.AuditRemark"</p>
+        </div>
+    }
+
+    <div class="mt-auto pt-3">
+        <div class="pt-2 border-top border-white border-opacity-10 mb-3">
+            <div class="d-flex gap-3 flex-wrap align-items-center">
+                <div>
+                    <div class="text-micro">Assigned To</div>
+                    <div class="text-detail text-white fw-bold">@Task.AssignedTo</div>
+                </div>
+                <div class="ms-auto text-end">
+                    <div class="text-micro">@Task.CreatedAt.ToString("MMM dd")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-column gap-2">
+            @if (Task.Status == TaskItemStatus.Available)
+            {
+                <button class="btn btn-primary fw-bold w-100 py-2 rounded-pill shadow-sm" @onclick="() => _showConfirmAccept = true">
+                    <i class="bi bi-person-check-fill me-2"></i>ACCEPT TASK
+                </button>
+            }
+            else if (Task.Status == TaskItemStatus.InProgress)
+            {
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success fw-bold flex-grow-1 py-2 rounded-pill shadow-sm" @onclick="() => _showConfirmDone = true">
+                        <i class="bi bi-check-circle-fill me-2"></i>DONE
+                    </button>
+                    
+                    @if (Task.AssignedTo.Equals(_currentUser, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <button class="btn btn-outline-danger py-2 px-3 rounded-pill" @onclick="() => _isRequestingHelp = true" title="Request Help">
+                            <i class="bi bi-question-circle"></i>
+                        </button>
+                    }
+                </div>
+            }
+            else if (Task.Status == TaskItemStatus.Completed)
+            {
+                <button class="btn btn-outline-info fw-bold w-100 py-1 text-micro rounded-pill" @onclick="() => _isAuditing = true">
+                    <i class="bi bi-clipboard-check me-2"></i>AUDIT / FEEDBACK
+                </button>
+            }
+
+            @if (Task.NeedsHelp && !Task.AssignedTo.Equals(_currentUser, StringComparison.OrdinalIgnoreCase))
+            {
+                <button class="btn btn-danger btn-sm text-micro fw-bold w-100 mt-1 py-1 rounded-pill" @onclick="AcceptHelpRequest">
+                    <i class="bi bi-hand-thumbs-up-fill me-2"></i>I CAN HELP (TAKE OVER)
+                </button>
+            }
+
+            <button class="btn btn-link text-detail text-white p-0 mt-1 text-center opacity-75 hover-opacity-1" @onclick="() => _showRemarks = !_showRemarks">
+                <i class="bi @(_showRemarks ? "bi-chat-fill" : "bi-chat") me-1"></i> 
+                @(Task.Remarks?.Count ?? 0) @(Task.Remarks?.Count == 1 ? "Remark" : "Remarks")
+            </button>
+        </div>
+    </div>
+
+    @if (_showRemarks)
+    {
+        <div class="mt-3 p-3 bg-white bg-opacity-5 rounded-4 border border-white border-opacity-10">
+            <div class="remarks-scroll mb-3" style="max-height: 150px; overflow-y: auto;">
+                @if (Task.Remarks == null || !Task.Remarks.Any())
+                {
+                    <div class="text-micro opacity-50 text-center py-2">No remarks yet. Start the conversation!</div>
+                }
+                else
+                {
+                    @foreach (var remark in Task.Remarks.OrderBy(r => r.CreatedAt))
+                    {
+                        <div class="mb-2 pb-2 border-bottom border-white border-opacity-5">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-micro fw-bold @(remark.Author == _currentUser ? "text-primary" : "text-white")">@remark.Author</span>
+                                <span class="text-micro opacity-50" style="font-size: 0.6rem;">@remark.CreatedAt.ToString("HH:mm")</span>
+                            </div>
+                            <div class="text-detail text-white-50 lh-sm">@remark.Content</div>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="d-flex gap-2">
+                <input type="text" class="form-control form-control-sm bg-dark bg-opacity-25 border-white border-opacity-10 text-white text-detail" 
+                       placeholder="Add a remark..." 
+                       @bind="_newRemarkContent" @onkeyup='async (e) => { if(e.Key == "Enter") await AddRemark(); }' />
+                <button class="btn btn-primary btn-sm px-3" @onclick="AddRemark"><i class="bi bi-send-fill text-micro"></i></button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showConfirmAccept)
+{
+    <ConfirmationDialog Title="Accept Task?" Message="Are you ready to start working on this initiative?" ConfirmText="ACCEPT" OnConfirm="ConfirmAccept" OnCancel="() => _showConfirmAccept = false" />
+}
+
+@if (_showConfirmDone)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="glass-card border-white border-opacity-10 p-4 w-100">
+                <h3 class="h3 text-white mb-2">Well Done!</h3>
+                <p class="text-detail mb-3">Add a brief summary or closing remark for your team:</p>
+                <textarea class="form-control mb-4 bg-white bg-opacity-5 border-white border-opacity-10 text-white" 
+                          rows="3" @bind="_completionRemark" placeholder="e.g. Optimized the SQL queries and updated documentation..."></textarea>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-light flex-grow-1 py-2 text-micro fw-bold" @onclick="() => _showConfirmDone = false">
+                        CANCEL
+                    </button>
+                    <button class="btn btn-success flex-grow-1 py-2 text-micro fw-bold" @onclick="ConfirmDone">
+                        COMPLETE TASK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_isRequestingHelp)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="glass-card border-white border-opacity-10 p-4 w-100">
+                <h3 class="h3 text-white mb-2">Request Assistance</h3>
+                <p class="text-detail mb-3 text-white-50">Describe what you're stuck on so your team can help out:</p>
+                <textarea class="form-control mb-4 bg-white bg-opacity-5 border-white border-opacity-10 text-white" 
+                          rows="3" @bind="_helpDetails" placeholder="e.g. Need clarification on the API endpoints for user data..."></textarea>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-light flex-grow-1 py-2 text-micro fw-bold" @onclick="() => _isRequestingHelp = false">
+                        CANCEL
+                    </button>
+                    <button class="btn btn-danger flex-grow-1 py-2 text-micro fw-bold" @onclick="SubmitHelpRequest">
+                        POST REQUEST
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_isAuditing)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="glass-card border-white border-opacity-10 p-4 w-100">
+                <h3 class="h3 text-white mb-2">Task Audit / Feedback</h3>
+                <p class="text-detail mb-3 text-white-50">Review the completed work. Should it stay done or needs modification?</p>
+                <textarea class="form-control mb-4 bg-white bg-opacity-5 border-white border-opacity-10 text-white" 
+                          rows="3" @bind="_auditRemark" placeholder="e.g. Great work, but please also update the unit tests..."></textarea>
+                <div class="d-flex flex-column gap-2">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-light flex-grow-1 py-2 text-micro fw-bold" @onclick="() => _isAuditing = false">
+                            CANCEL
+                        </button>
+                        <button class="btn btn-success flex-grow-1 py-2 text-micro fw-bold" @onclick="ConfirmAuditStayDone">
+                            STAY COMPLETED
+                        </button>
+                    </div>
+                    <button class="btn btn-warning w-100 py-2 text-micro fw-bold" @onclick="AuditBackToInProgress">
+                        RE-OPEN: NEEDS MODIFICATION
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public TaskItem Task { get; set; } = default!;
+    [Parameter] public EventCallback OnStatusChanged { get; set; }
+
+    private string? _currentUser;
+    private bool _showConfirmAccept;
+    private bool _showConfirmDone;
+    private string _completionRemark = "";
+    
+    private bool _isRequestingHelp;
+    private string _helpDetails = "";
+    
+    private bool _showRemarks;
+    private string _newRemarkContent = "";
+
+    private bool _isAuditing;
+    private string _auditRemark = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _currentUser = await UserIdentity.GetCurrentUserAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmAccept()
+    {
+        _showConfirmAccept = false;
+        if (!string.IsNullOrWhiteSpace(_currentUser))
+        {
+            Task.AssignedTo = _currentUser;
+        }
+        Task.Status = TaskItemStatus.InProgress;
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task ConfirmDone()
+    {
+        _showConfirmDone = false;
+        Task.Status = TaskItemStatus.Completed;
+        Task.AuditRemark = _completionRemark;
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task SubmitHelpRequest()
+    {
+        _isRequestingHelp = false;
+        Task.NeedsHelp = true;
+        Task.HelpDetails = _helpDetails;
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task AcceptHelpRequest()
+    {
+        if (string.IsNullOrWhiteSpace(_currentUser)) return;
+        
+        // Peer is taking over the task
+        Task.AssignedTo = _currentUser;
+        Task.NeedsHelp = false; // Issue resolved by taking over
+        Task.HelpDetails = "";
+        
+        await TaskService.AddRemarkAsync(Task.Id, new TaskRemark {
+            Author = _currentUser,
+            Content = "I've accepted this task and am taking over to move it forward."
+        });
+        
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task ConfirmAuditStayDone()
+    {
+        _isAuditing = false;
+        Task.AuditRemark = _auditRemark;
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task AuditBackToInProgress()
+    {
+        _isAuditing = false;
+        Task.Status = TaskItemStatus.InProgress;
+        Task.AuditRemark = _auditRemark;
+        Task.NeedsHelp = true; // Signal that it needs help/modifications
+        Task.HelpDetails = "Re-opened for modification: " + _auditRemark;
+        
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task AddRemark()
+    {
+        if (string.IsNullOrWhiteSpace(_newRemarkContent) || string.IsNullOrWhiteSpace(_currentUser)) return;
+
+        var remark = new TaskRemark {
+            Author = _currentUser,
+            Content = _newRemarkContent
+        };
+
+        await TaskService.AddRemarkAsync(Task.Id, remark);
+        Task.Remarks.Add(remark); // Local update for UI
+        _newRemarkContent = "";
+        StateHasChanged();
+    }
+
+    private async Task UpdateStatus(TaskItemStatus newStatus)
+    {
+        Task.Status = newStatus;
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task DeleteTask()
+    {
+        await TaskService.DeleteTaskAsync(Task.Id);
+        await OnStatusChanged.InvokeAsync();
+    }
+}

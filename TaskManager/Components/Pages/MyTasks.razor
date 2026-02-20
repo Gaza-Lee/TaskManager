@@ -1,0 +1,196 @@
+@page "/my-tasks"
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject UserIdentityService UserIdentity
+@inject NavigationManager Navigation
+
+<PageTitle>My Tasks - Task Hub</PageTitle>
+
+<div class="container pb-5">
+    @if (_userName == null)
+    {
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="h1 mb-1">My Tasks</h1>
+                <p class="text-detail">Personal workspace for <span class="text-white fw-bold">@_userName</span></p>
+            </div>
+        </div>
+
+        <!-- Statistics Section -->
+        <div class="row g-3 mb-5">
+            <div class="col-6 col-md-3">
+                <div class="glass-card text-center p-3 h-100">
+                    <div class="text-micro text-uppercase fw-bold mb-1">Today</div>
+                    <div class="h2 mb-0 text-success">@_stats.Today</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="glass-card text-center p-3 h-100">
+                    <div class="text-micro text-uppercase fw-bold mb-1">This Week</div>
+                    <div class="h2 mb-0 text-success">@_stats.ThisWeek</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="glass-card text-center p-3 h-100">
+                    <div class="text-micro text-uppercase fw-bold mb-1">This Month</div>
+                    <div class="h2 mb-0 text-success">@_stats.ThisMonth</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="glass-card text-center p-3 h-100">
+                    <div class="text-micro text-uppercase fw-bold mb-1">This Year</div>
+                    <div class="h2 mb-0 text-success">@_stats.ThisYear</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-12">
+                <h2 class="h2 border-bottom border-white border-opacity-10 pb-3 mb-3 d-flex align-items-center text-white">
+                    <i class="bi bi-arrow-repeat me-2 text-warning"></i> In Progress
+                    @if (_inProgressTasks.Any())
+                    {
+                        <span class="badge bg-warning text-dark ms-2 rounded-pill status-badge">@_inProgressTasks.Count</span>
+                    }
+                </h2>
+                @{
+                    var needingHelp = _inProgressTasks.Where(t => t.NeedsHelp).ToList();
+                    var onTrack = _inProgressTasks.Where(t => !t.NeedsHelp).ToList();
+                }
+
+                @if (needingHelp.Any())
+                {
+                    <h3 class="h3 text-white mb-3 d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i> Needs Attention
+                        <span class="badge bg-danger text-white ms-2 rounded-pill status-badge">@needingHelp.Count</span>
+                    </h3>
+                    <div class="row g-4 mb-4">
+                        @foreach (var task in needingHelp)
+                        {
+                            <div class="col-lg-4 col-md-6">
+                                <TaskCard Task="task" OnStatusChanged="LoadData" />
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (onTrack.Any())
+                {
+                    @if (needingHelp.Any())
+                    {
+                        <h3 class="h3 text-white mb-3 d-flex align-items-center mt-4">
+                            <i class="bi bi-play-circle-fill me-2 text-primary"></i> On Track
+                        </h3>
+                    }
+                    <div class="row g-4">
+                        @foreach (var task in onTrack)
+                        {
+                            <div class="col-lg-4 col-md-6">
+                                <TaskCard Task="task" OnStatusChanged="LoadData" />
+                            </div>
+                        }
+                    </div>
+                }
+                
+                @if (!_inProgressTasks.Any())
+                {
+                    <div class="glass-card p-4 text-center">
+                        <p class="text-detail mb-0">No active tasks. Good job!</p>
+                        <a href="tasks/available" class="btn btn-outline-primary btn-sm mt-3 rounded-pill px-4 text-micro fw-bold">Find Available Tasks</a>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <h2 class="h2 border-bottom border-white border-opacity-10 pb-3 mb-4 d-flex align-items-center text-white">
+                    <i class="bi bi-check-circle-fill me-2 text-success"></i> Recently Completed
+                </h2>
+                @if (!_completedTasks.Any())
+                {
+                    <div class="text-muted small italic opacity-50">No completed tasks yet.</div>
+                }
+                else
+                {
+                    <div class="row g-4">
+                        @foreach (var task in _completedTasks.Take(6))
+                        {
+                            <div class="col-lg-4 col-md-6">
+                                <TaskCard Task="task" OnStatusChanged="LoadData" />
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string? _userName;
+    private List<TaskItem> _inProgressTasks = new();
+    private List<TaskItem> _completedTasks = new();
+    private CompletionStats _stats = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _userName = await UserIdentity.GetCurrentUserAsync();
+            if (string.IsNullOrWhiteSpace(_userName))
+            {
+                Navigation.NavigateTo("/set-name");
+                return;
+            }
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        if (_userName == null) return;
+        
+        var all = await TaskService.GetTasksAsync();
+        var userTasks = all.Where(t => t.AssignedTo.Equals(_userName, StringComparison.OrdinalIgnoreCase)).ToList();
+        
+        _inProgressTasks = userTasks.Where(t => t.Status == TaskItemStatus.InProgress).OrderByDescending(t => t.CreatedAt).ToList();
+        _completedTasks = userTasks.Where(t => t.Status == TaskItemStatus.Completed).OrderByDescending(t => t.CompletedAt).ToList();
+        
+        CalculateStats(userTasks);
+    }
+
+    private void CalculateStats(List<TaskItem> userTasks)
+    {
+        var now = DateTime.UtcNow;
+        var completed = userTasks.Where(t => t.Status == TaskItemStatus.Completed && t.CompletedAt.HasValue).ToList();
+        
+        _stats.Today = completed.Count(t => t.CompletedAt!.Value.Date == now.Date);
+        
+        var startOfWeek = now.AddDays(-(int)now.DayOfWeek);
+        _stats.ThisWeek = completed.Count(t => t.CompletedAt!.Value.Date >= startOfWeek.Date);
+        
+        _stats.ThisMonth = completed.Count(t => t.CompletedAt!.Value.Month == now.Month && t.CompletedAt!.Value.Year == now.Year);
+        _stats.ThisYear = completed.Count(t => t.CompletedAt!.Value.Year == now.Year);
+        _stats.AllTime = completed.Count;
+    }
+
+    private class CompletionStats
+    {
+        public int Today { get; set; }
+        public int ThisWeek { get; set; }
+        public int ThisMonth { get; set; }
+        public int ThisYear { get; set; }
+        public int AllTime { get; set; }
+    }
+}

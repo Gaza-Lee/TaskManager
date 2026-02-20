@@ -1,0 +1,99 @@
+@page "/assign-task"
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject UserIdentityService UserIdentity
+@inject NavigationManager Navigation
+
+<PageTitle>Create Task - Task Hub</PageTitle>
+
+<div class="container pb-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h1 mb-1">Create Task</h1>
+            <p class="text-detail">Assign work to a team member.</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="glass-card">
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="alert alert-danger small mb-4">@_errorMessage</div>
+                }
+
+                <EditForm Model="_newTask" OnSubmit="HandleSubmit">
+                    <div class="mb-4">
+                        <label class="form-label text-micro text-uppercase fw-bold">Task Title</label>
+                        <InputText @bind-Value="_newTask.Title" class="form-control fw-bold" placeholder="e.g. Design the landing page" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-micro text-uppercase fw-bold">Description</label>
+                        <InputTextArea @bind-Value="_newTask.Description" class="form-control" rows="3" placeholder="What needs to be done?" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-micro text-uppercase fw-bold">Assign To</label>
+                        <InputText @bind-Value="_newTask.AssignedTo" class="form-control" placeholder="Who should do this?" />
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-link text-muted px-4" @onclick="GoBack">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
+                            <i class="bi bi-plus-lg me-2"></i>Create Task
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private TaskItem _newTask = new();
+    private string? _errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var user = await UserIdentity.GetCurrentUserAsync();
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                Navigation.NavigateTo("/set-name");
+                return;
+            }
+            _newTask.AssignedBy = user;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_newTask.Title))
+        {
+            _errorMessage = "Task title is required.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_newTask.AssignedTo))
+        {
+            _errorMessage = "Please specify who the task is for.";
+            return;
+        }
+
+        try
+        {
+            _newTask.Status = TaskItemStatus.Available;
+            await TaskService.AddTaskAsync(_newTask);
+            Navigation.NavigateTo("/tasks/available");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to create task: {ex.Message}";
+        }
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/");
+}
