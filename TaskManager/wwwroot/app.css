@@ -1,132 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Inter:wght@100..900&display=swap');
+
 :root {
   --primary: #6366f1;
-  --bg-dark: #0f172a;
-  --glass-bg: rgba(15, 23, 42, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
 }
 
 body {
-  background-color: var(--bg-dark);
-  color: var(--text-main);
-  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #020617; /* slate-950 */
+  color: #f1f5f9; /* slate-100 */
+  font-family: "Outfit", "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
 }
 
-/* Premium Layout Components - Grounded */
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px); /* Reduced from 16px */
-  border: 1px solid var(--glass-border);
-  border-radius: 1.25rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); /* Reduced for grounding */
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-/* Typography Harmony */
-h1, .h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.5rem; }
-h2, .h2 { font-size: 1.25rem; font-weight: 700; }
-h3, .h3 { font-size: 1.05rem; font-weight: 600; }
-.text-detail { font-size: 0.85rem; color: #f1f5f9; } /* Brighter soft white */
-.text-micro { font-size: 0.7rem; color: #cbd5e1; } /* Brighter soft white */
-
-/* Form Elements - Fixed 'Huge' Issue */
-.form-control, .form-select {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #fff !important;
-  font-size: 0.9rem !important;
-  padding: 0.6rem 1rem;
-  border-radius: 0.75rem;
+/* Base resets for Blazor */
+.page {
+    display: block;
 }
 
-.form-control::placeholder {
-  color: rgba(255, 255, 255, 0.45) !important; /* Higher contrast */
-  font-size: 0.85rem;
+#blazor-error-ui {
+    background: #ef4444; /* rose-500 */
+    color: white;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
 }
 
-/* Visibility Fixes - Making Cancel/Edit/Muted text appear white */
-.text-muted { color: #cbd5e1 !important; } /* Soft white for better visibility */
-
-.btn-link, .btn-link.text-muted {
-  color: #fff !important; 
-  text-decoration: none;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
 }
 
-.btn-link:hover { opacity: 1; }
-
-.btn-view-all {
-  color: #fff !important;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.9;
-  text-decoration: none;
+/* Tailwind Extensions for Blazor environment if needed */
+@layer utilities {
+    .animate-in {
+        animation-duration: 0.3s;
+        animation-fill-mode: both;
+    }
 }
-
-.btn-view-all:hover { opacity: 1; }
-
-.status-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.25rem 0.6rem;
-  border-radius: 2rem;
-}
-
-.activity-item {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 0.75rem 0;
-  transition: background 0.2s;
-}
-
-.nav-link.active {
-  background: rgba(99, 102, 241, 0.1) !important;
-  border-left: 3px solid var(--primary);
-  color: #fff !important;
-}
-
-.btn-primary {
-  background: var(--primary);
-  border: none;
-  border-radius: 0.75rem;
-  padding: 0.6rem 1.5rem;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #fff;
-}
-
-.status-available { background: rgba(129, 140, 248, 0.1); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.2); }
-.status-inprogress { background: rgba(196, 181, 253, 0.1); color: #c4b5fd; border: 1px solid rgba(196, 181, 253, 0.2); }
-.status-completed { background: rgba(94, 234, 212, 0.1); color: #5eead4; border: 1px solid rgba(94, 234, 212, 0.2); }
-
-/* Notification & Dynamic UI Utilities */
-.hover-scale { transition: transform 0.2s ease; }
-.hover-scale:hover { transform: scale(1.1); }
-
-.pulse {
-  animation: pulse-red 2s infinite;
-}
-
-@keyframes pulse-red {
-  0% { transform: translate(-50%, -50%) scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-  70% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
-  100% { transform: translate(-50%, -50%) scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.shadow-glow { box-shadow: 0 0 15px rgba(99, 102, 241, 0.3); }
-.text-primary-light { color: #a5b4fc; }
-
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }

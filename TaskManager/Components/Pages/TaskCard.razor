@@ -3,159 +3,217 @@
 @inject ITaskService TaskService
 @inject UserIdentityService UserIdentity
 
-<div class="glass-card d-flex flex-column h-100 position-relative">
+<div class="group relative bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-slate-900/60 hover:border-white/20 transition-all shadow-xl hover:shadow-2xl flex flex-col h-full">
 
-    <div class="d-flex justify-content-between align-items-start mb-3">
+    <div class="flex justify-between items-start mb-4">
         @{
-            var statusClass = Task.Status switch {
-                TaskItemStatus.Available => "bg-primary text-primary",
-                TaskItemStatus.InProgress => "bg-info text-info",
-                _ => "bg-success text-success"
+            var statusLabel = Task.Status switch {
+                TaskItemStatus.Available => "Available",
+                TaskItemStatus.InProgress when Task.NeedsHelp => "Need Assistance",
+                TaskItemStatus.InProgress when Task.NeedsModification => "Modified",
+                TaskItemStatus.InProgress => "On Track",
+                _ => "Completed"
+            };
+            var statusColor = Task.Status switch {
+                TaskItemStatus.Available => "text-indigo-400 border-indigo-500/30",
+                TaskItemStatus.InProgress when Task.NeedsHelp => "text-rose-500 border-rose-500/30",
+                TaskItemStatus.InProgress when Task.NeedsModification => "text-amber-500 border-amber-500/30",
+                TaskItemStatus.InProgress => "text-sky-400 border-sky-500/30",
+                _ => "text-emerald-400 border-emerald-500/30"
             };
         }
-        <span class="badge @statusClass bg-opacity-10 border border-opacity-25 rounded-pill px-3 py-2 status-badge">
-            <i class="bi bi-circle-fill me-1 text-micro"></i>@Task.Status
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.2em] border @statusColor shadow-sm">
+            @statusLabel
         </span>
 
-        <div class="d-flex align-items-center gap-2">
-            @if (Task.NeedsHelp)
+        <div class="flex items-center gap-1">
+            @if (_currentUser == Task.AssignedBy)
             {
-                <span class="badge bg-danger rounded-pill status-badge">Help Needed</span>
-            }
-            <div class="dropdown">
-                <button class="btn btn-link p-0 text-muted" type="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-three-dots-vertical"></i>
+                <button class="flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all active:scale-90" 
+                        title="Delete Objective" @onclick="DeleteTask">
+                    <i class="bi bi-trash text-sm"></i>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow border-secondary">
-                    @if (Task.Status != TaskItemStatus.Available)
-                    {
-                        <li><button class="dropdown-item small" @onclick="() => UpdateStatus(TaskItemStatus.Available)">
-                            <i class="bi bi-circle me-2"></i>Move to Available
-                        </button></li>
-                    }
-                    @if (Task.Status != TaskItemStatus.InProgress)
-                    {
-                        <li><button class="dropdown-item small" @onclick="() => UpdateStatus(TaskItemStatus.InProgress)">
-                            <i class="bi bi-arrow-repeat me-2"></i>Move to In Progress
-                        </button></li>
-                    }
-                    @if (Task.Status != TaskItemStatus.Completed)
-                    {
-                        <li><button class="dropdown-item small" @onclick="() => UpdateStatus(TaskItemStatus.Completed)">
-                            <i class="bi bi-check-circle me-2"></i>Move to Completed
-                        </button></li>
-                    }
-                    <li><hr class="dropdown-divider opacity-10"></li>
-                    <li><button class="dropdown-item small text-danger" @onclick="DeleteTask">
-                        <i class="bi bi-trash me-2"></i>Delete Task
-                    </button></li>
-                </ul>
-            </div>
+            }
         </div>
     </div>
 
-    <h3 class="h3 mb-2 text-white">@Task.Title</h3>
-    <p class="text-micro mb-0" style="line-height: 1.6;">@Task.Description</p>
+    <h3 class="text-lg font-black text-white mb-2 tracking-tight leading-tight group-hover:text-indigo-400 transition-colors">@Task.Title</h3>
+    <p class="text-xs text-slate-400 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all group-hover:text-slate-300">@Task.Description</p>
 
     @if (Task.NeedsHelp && !string.IsNullOrWhiteSpace(Task.HelpDetails))
     {
-        <div class="mt-3 p-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-20">
-            <div class="text-micro fw-bold text-danger mb-1 text-uppercase letter-spacing-1">Help Request Details</div>
-            <p class="text-detail text-white mb-0 italic">"@Task.HelpDetails"</p>
+        <div class="mt-4 p-3 rounded-xl border border-rose-500/10 group/help">
+            <div class="text-[9px] font-black text-rose-500/60 mb-1.5 uppercase tracking-widest flex items-center">
+                <i class="bi bi-patch-question mr-2 group-hover/help:animate-pulse"></i>Assistance Requested
+            </div>
+            <p class="text-xs text-slate-300 italic leading-relaxed pl-5 border-l border-rose-500/20">@Task.HelpDetails</p>
+        </div>
+    }
+
+    @if (Task.NeedsModification && !string.IsNullOrWhiteSpace(Task.HelpDetails))
+    {
+        <div class="mt-4 p-3 rounded-xl border border-amber-500/10 group/mod">
+            <div class="text-[9px] font-black text-amber-500/60 mb-1.5 uppercase tracking-widest flex items-center justify-between">
+                <span><i class="bi bi-pencil-square mr-2 group-hover/mod:animate-pulse"></i>Latest Modification Request</span>
+                @if (Task.ModificationHistory?.Any() == true)
+                {
+                    <button class="text-[9px] text-slate-600 hover:text-amber-500 flex items-center transition-colors" 
+                            @onclick="() => _showModHistory = !_showModHistory">
+                        <i class="bi @(_showModHistory ? "bi-eye-slash" : "bi-clock-history") mr-1.5"></i>
+                        @(_showModHistory ? "Hide Logs" : $"{Task.ModificationHistory.Count} Previous")
+                    </button>
+                }
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed pl-5 border-l border-amber-500/20">@Task.HelpDetails</p>
+
+            @if (_showModHistory && Task.ModificationHistory?.Any() == true)
+            {
+                <div class="mt-3 pt-3 border-t border-white/5 space-y-3 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                    @foreach (var oldMsg in Task.ModificationHistory.AsEnumerable().Reverse())
+                    {
+                        <div class="relative pl-4 border-l border-white/5 py-1">
+                            <div class="absolute -left-px top-2 w-1 h-3 bg-amber-500/20"></div>
+                            <div class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">Archived Mod</div>
+                            <div class="text-[11px] text-slate-400 italic">@oldMsg</div>
+                        </div>
+                    }
+                </div>
+            }
         </div>
     }
 
     @if (Task.Status == TaskItemStatus.Completed && !string.IsNullOrWhiteSpace(Task.AuditRemark))
     {
-        <div class="mt-3 p-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-20">
-            <div class="text-micro fw-bold text-success mb-1 text-uppercase letter-spacing-1">Completion Remark</div>
-            <p class="text-detail text-white mb-0">"@Task.AuditRemark"</p>
+        <div class="mt-4 p-4 rounded-xl border border-emerald-500/20">
+            <div class="text-[10px] font-bold text-emerald-400 mb-1 uppercase tracking-widest flex items-center">
+                <i class="bi bi-patch-check-fill mr-2"></i>Audit / Feedback
+            </div>
+            <p class="text-xs text-slate-200 leading-relaxed">@Task.AuditRemark</p>
         </div>
     }
 
-    <div class="mt-auto pt-3">
-        <div class="pt-2 border-top border-white border-opacity-10 mb-3">
-            <div class="d-flex gap-3 flex-wrap align-items-center">
-                <div>
-                    <div class="text-micro">Assigned To</div>
-                    <div class="text-detail text-white fw-bold">@Task.AssignedTo</div>
+    <div class="mt-auto pt-4">
+        <div class="pt-3 border-t border-white/5 mb-4">
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <div class="text-[8px] text-slate-500 uppercase font-black tracking-widest">Assigned By:</div>
+                    <div class="text-[11px] text-white font-bold">@Task.AssignedBy</div>
                 </div>
-                <div class="ms-auto text-end">
-                    <div class="text-micro">@Task.CreatedAt.ToString("MMM dd")</div>
-                </div>
+
+                @{
+                    var roleLabel = Task.Status switch {
+                        TaskItemStatus.Available => "Assigned to:",
+                        TaskItemStatus.InProgress => "accepted by:",
+                        _ => "completed by:"
+                    };
+                    var roleParticpant = Task.Status switch {
+                        TaskItemStatus.Available => Task.AssignedTo,
+                        TaskItemStatus.InProgress => Task.AcceptedBy,
+                        _ => Task.CompletedBy
+                    };
+                }
+
+                @if (!string.IsNullOrWhiteSpace(roleParticpant))
+                {
+                    <div class="flex items-center justify-between">
+                        <div class="text-[8px] text-slate-500 uppercase font-black tracking-widest">@roleLabel</div>
+                        <div class="text-[11px] text-white font-bold">@roleParticpant</div>
+                    </div>
+                }
+            </div>
+            <div class="mt-4 text-[9px] text-slate-600 font-medium flex items-center justify-center border-t border-white/[0.03] pt-3">
+                @Task.CreatedAt.ToString("MMM dd HH:mm")
             </div>
         </div>
 
-        <div class="d-flex flex-column gap-2">
+        <div class="flex flex-col gap-2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
             @if (Task.Status == TaskItemStatus.Available)
             {
-                <button class="btn btn-primary fw-bold w-100 py-2 rounded-pill shadow-sm" @onclick="() => _showConfirmAccept = true">
-                    <i class="bi bi-person-check-fill me-2"></i>ACCEPT TASK
+                <button class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] tracking-widest shadow-lg shadow-indigo-600/20 transition-all active:scale-95 uppercase" @onclick="() => _showConfirmAccept = true">
+                    <i class="bi bi-person-check-fill mr-2"></i>Accept Objective
                 </button>
             }
             else if (Task.Status == TaskItemStatus.InProgress)
             {
-                <div class="d-flex gap-2">
-                    <button class="btn btn-success fw-bold flex-grow-1 py-2 rounded-pill shadow-sm" @onclick="() => _showConfirmDone = true">
-                        <i class="bi bi-check-circle-fill me-2"></i>DONE
-                    </button>
-                    
+                <div class="flex gap-2">
                     @if (Task.AssignedTo.Equals(_currentUser, StringComparison.OrdinalIgnoreCase))
                     {
-                        <button class="btn btn-outline-danger py-2 px-3 rounded-pill" @onclick="() => _isRequestingHelp = true" title="Request Help">
-                            <i class="bi bi-question-circle"></i>
+                        <button class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] tracking-widest shadow-lg shadow-emerald-600/20 transition-all active:scale-95 uppercase" @onclick="() => _showConfirmDone = true">
+                            <i class="bi bi-check-circle-fill mr-2"></i>Done
                         </button>
+                        
+                        <button class="px-4 py-2.5 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 font-bold text-[10px] transition-all active:scale-95 uppercase" @onclick="() => _isRequestingHelp = true">
+                            <i class="bi bi-question-circle mr-2"></i>Assistance
+                        </button>
+                    }
+                    else if (Task.NeedsHelp || Task.NeedsModification)
+                    {
+                        <button class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] tracking-widest shadow-lg shadow-indigo-600/20 transition-all active:scale-95 uppercase" @onclick="AcceptHelpRequest">
+                            <i class="bi bi-hand-thumbs-up-fill mr-2"></i>Take Over
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="w-full py-2.5 rounded-xl bg-slate-800 text-slate-500 text-center font-bold text-[9px] border border-white/5 italic">
+                            Currently In Execution
+                        </div>
                     }
                 </div>
             }
             else if (Task.Status == TaskItemStatus.Completed)
             {
-                <button class="btn btn-outline-info fw-bold w-100 py-1 text-micro rounded-pill" @onclick="() => _isAuditing = true">
-                    <i class="bi bi-clipboard-check me-2"></i>AUDIT / FEEDBACK
+                <button class="w-full py-2.5 rounded-xl border border-sky-500/30 text-sky-400 hover:bg-sky-500/10 font-black text-[9px] tracking-widest transition-all active:scale-95 uppercase mb-1" @onclick="() => _isReopening = true">
+                    <i class="bi bi-arrow-counterclockwise mr-2"></i>REOPEN FOR MODIFICATION
                 </button>
             }
 
-            @if (Task.NeedsHelp && !Task.AssignedTo.Equals(_currentUser, StringComparison.OrdinalIgnoreCase))
-            {
-                <button class="btn btn-danger btn-sm text-micro fw-bold w-100 mt-1 py-1 rounded-pill" @onclick="AcceptHelpRequest">
-                    <i class="bi bi-hand-thumbs-up-fill me-2"></i>I CAN HELP (TAKE OVER)
-                </button>
-            }
-
-            <button class="btn btn-link text-detail text-white p-0 mt-1 text-center opacity-75 hover-opacity-1" @onclick="() => _showRemarks = !_showRemarks">
-                <i class="bi @(_showRemarks ? "bi-chat-fill" : "bi-chat") me-1"></i> 
-                @(Task.Remarks?.Count ?? 0) @(Task.Remarks?.Count == 1 ? "Remark" : "Remarks")
+            <button class="w-full text-[9px] text-slate-600 hover:text-white mt-1 flex items-center justify-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity" @onclick="() => _showRemarks = !_showRemarks">
+                <i class="bi @(_showRemarks ? "bi-chat-fill" : "bi-chat")"></i> 
+                <span>@(Task.Remarks?.Count ?? 0) @(Task.Remarks?.Count == 1 ? "Remark" : "Remarks")</span>
             </button>
         </div>
     </div>
 
     @if (_showRemarks)
     {
-        <div class="mt-3 p-3 bg-white bg-opacity-5 rounded-4 border border-white border-opacity-10">
-            <div class="remarks-scroll mb-3" style="max-height: 150px; overflow-y: auto;">
+        <div class="mt-4 p-4 rounded-2xl bg-black/30 border border-white/5 shadow-inner animate-in slide-in-from-top-2 duration-300">
+            <div class="text-[9px] font-bold text-slate-500 mb-3 uppercase tracking-widest flex justify-between items-center">
+                <span><i class="bi bi-chat-right-text mr-2"></i>CONVERSATION</span>
+                <span class="px-2 py-0.5 rounded-md bg-white/5 text-[8px]">@(Task.Remarks?.Count ?? 0)</span>
+            </div>
+            
+            <div class="space-y-4 mb-4 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                 @if (Task.Remarks == null || !Task.Remarks.Any())
                 {
-                    <div class="text-micro opacity-50 text-center py-2">No remarks yet. Start the conversation!</div>
+                    <div class="text-center py-6 opacity-30">
+                        <i class="bi bi-chat-dots block text-2xl mb-2"></i>
+                        <p class="text-[10px]">No remarks yet.</p>
+                    </div>
                 }
                 else
                 {
                     @foreach (var remark in Task.Remarks.OrderBy(r => r.CreatedAt))
                     {
-                        <div class="mb-2 pb-2 border-bottom border-white border-opacity-5">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="text-micro fw-bold @(remark.Author == _currentUser ? "text-primary" : "text-white")">@remark.Author</span>
-                                <span class="text-micro opacity-50" style="font-size: 0.6rem;">@remark.CreatedAt.ToString("HH:mm")</span>
+                        var isMe = remark.Author == _currentUser;
+                        <div class="flex flex-col @(isMe ? "items-end" : "items-start")">
+                            <div class="flex items-center gap-2 mb-1 px-1">
+                                <span class="text-[9px] font-bold @(isMe ? "text-indigo-400" : "text-slate-300")">@remark.Author</span>
+                                <span class="text-[8px] text-slate-600">@remark.CreatedAt.ToString("HH:mm")</span>
                             </div>
-                            <div class="text-detail text-white-50 lh-sm">@remark.Content</div>
+                            <div class="px-3 py-2 rounded-2xl text-xs leading-relaxed break-words max-w-[90%] shadow-sm @(isMe ? "bg-indigo-600/20 text-indigo-100 border border-indigo-500/20 rounded-tr-none" : "bg-slate-800 text-slate-200 border border-white/5 rounded-tl-none")">
+                                @remark.Content
+                            </div>
                         </div>
                     }
                 }
             </div>
-            <div class="d-flex gap-2">
-                <input type="text" class="form-control form-control-sm bg-dark bg-opacity-25 border-white border-opacity-10 text-white text-detail" 
+            <div class="flex gap-2">
+                <input type="text" class="flex-1 min-w-0 bg-white/5 border border-white/10 text-white text-[11px] px-4 py-2 rounded-full focus:outline-none focus:border-indigo-500/50 transition-colors" 
                        placeholder="Add a remark..." 
                        @bind="_newRemarkContent" @onkeyup='async (e) => { if(e.Key == "Enter") await AddRemark(); }' />
-                <button class="btn btn-primary btn-sm px-3" @onclick="AddRemark"><i class="bi bi-send-fill text-micro"></i></button>
+                <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all" @onclick="AddRemark">
+                    <i class="bi bi-send-fill text-[10px]"></i>
+                </button>
             </div>
         </div>
     }
@@ -168,21 +226,19 @@
 
 @if (_showConfirmDone)
 {
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6);" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="glass-card border-white border-opacity-10 p-4 w-100">
-                <h3 class="h3 text-white mb-2">Well Done!</h3>
-                <p class="text-detail mb-3">Add a brief summary or closing remark for your team:</p>
-                <textarea class="form-control mb-4 bg-white bg-opacity-5 border-white border-opacity-10 text-white" 
-                          rows="3" @bind="_completionRemark" placeholder="e.g. Optimized the SQL queries and updated documentation..."></textarea>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-light flex-grow-1 py-2 text-micro fw-bold" @onclick="() => _showConfirmDone = false">
-                        CANCEL
-                    </button>
-                    <button class="btn btn-success flex-grow-1 py-2 text-micro fw-bold" @onclick="ConfirmDone">
-                        COMPLETE TASK
-                    </button>
-                </div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 class="text-xl font-bold text-white mb-2">Well Done!</h3>
+            <p class="text-xs text-slate-400 mb-4">Add a brief summary (optional):</p>
+            <textarea class="w-full bg-white/5 border border-white/10 text-white text-xs px-4 py-3 rounded-xl focus:outline-none focus:border-emerald-500/50 transition-colors mb-6 resize-none" 
+                      rows="3" @bind="_completionRemark" placeholder="e.g. Optimized the SQL queries..."></textarea>
+            <div class="grid grid-cols-2 gap-3">
+                <button class="py-2.5 rounded-full border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 font-bold text-xs" @onclick="() => { _showConfirmDone = false; _completionRemark = string.Empty; }">
+                    CANCEL
+                </button>
+                <button class="py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20" @onclick="ConfirmDone">
+                    COMPLETE
+                </button>
             </div>
         </div>
     </div>
@@ -190,21 +246,19 @@
 
 @if (_isRequestingHelp)
 {
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6);" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="glass-card border-white border-opacity-10 p-4 w-100">
-                <h3 class="h3 text-white mb-2">Request Assistance</h3>
-                <p class="text-detail mb-3 text-white-50">Describe what you're stuck on so your team can help out:</p>
-                <textarea class="form-control mb-4 bg-white bg-opacity-5 border-white border-opacity-10 text-white" 
-                          rows="3" @bind="_helpDetails" placeholder="e.g. Need clarification on the API endpoints for user data..."></textarea>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-light flex-grow-1 py-2 text-micro fw-bold" @onclick="() => _isRequestingHelp = false">
-                        CANCEL
-                    </button>
-                    <button class="btn btn-danger flex-grow-1 py-2 text-micro fw-bold" @onclick="SubmitHelpRequest">
-                        POST REQUEST
-                    </button>
-                </div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 class="text-xl font-bold text-white mb-2 text-rose-400">Request Help</h3>
+            <p class="text-xs text-slate-400 mb-4">Describe what you're stuck on:</p>
+            <textarea class="w-full bg-white/5 border border-white/10 text-white text-xs px-4 py-3 rounded-xl focus:outline-none focus:border-rose-500/50 transition-colors mb-6 resize-none" 
+                      rows="3" @bind="_helpDetails" placeholder="e.g. Need clarification on the API endpoints..."></textarea>
+            <div class="grid grid-cols-2 gap-3">
+                <button class="py-2.5 rounded-full border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 font-bold text-xs" @onclick="() => { _isRequestingHelp = false; _helpDetails = string.Empty; }">
+                    CANCEL
+                </button>
+                <button class="py-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/20" @onclick="SubmitHelpRequest">
+                    POST
+                </button>
             </div>
         </div>
     </div>
@@ -212,26 +266,45 @@
 
 @if (_isAuditing)
 {
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6);" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="glass-card border-white border-opacity-10 p-4 w-100">
-                <h3 class="h3 text-white mb-2">Task Audit / Feedback</h3>
-                <p class="text-detail mb-3 text-white-50">Review the completed work. Should it stay done or needs modification?</p>
-                <textarea class="form-control mb-4 bg-white bg-opacity-5 border-white border-opacity-10 text-white" 
-                          rows="3" @bind="_auditRemark" placeholder="e.g. Great work, but please also update the unit tests..."></textarea>
-                <div class="d-flex flex-column gap-2">
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-light flex-grow-1 py-2 text-micro fw-bold" @onclick="() => _isAuditing = false">
-                            CANCEL
-                        </button>
-                        <button class="btn btn-success flex-grow-1 py-2 text-micro fw-bold" @onclick="ConfirmAuditStayDone">
-                            STAY COMPLETED
-                        </button>
-                    </div>
-                    <button class="btn btn-warning w-100 py-2 text-micro fw-bold" @onclick="AuditBackToInProgress">
-                        RE-OPEN: NEEDS MODIFICATION
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 class="text-xl font-bold text-white mb-2 text-sky-400">Audit Review</h3>
+            <p class="text-xs text-slate-400 mb-4">Leave your feedback:</p>
+            <textarea class="w-full bg-white/5 border border-white/10 text-white text-xs px-4 py-3 rounded-xl focus:outline-none focus:border-sky-500/50 transition-colors mb-6 resize-none" 
+                      rows="3" @bind="_auditRemark" placeholder="e.g. Great work, but please check..."></textarea>
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <button class="py-2.5 rounded-full border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 font-bold text-xs" @onclick="() => { _isAuditing = false; _auditRemark = string.Empty; }">
+                        CANCEL
+                    </button>
+                    <button class="py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs" @onclick="ConfirmAuditStayDone">
+                        PASS AUDIT
                     </button>
                 </div>
+                <button class="w-full py-2.5 rounded-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-600/20" @onclick="AuditBackToInProgress">
+                    SEND BACK FOR MODIFICATION
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_isReopening)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 class="text-xl font-bold text-white mb-2 text-amber-500">Reopen Objective</h3>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-4">Specify Modification Requirements</p>
+            <textarea class="w-full bg-white/5 border border-white/10 text-white text-xs px-4 py-3 rounded-xl focus:outline-none focus:border-amber-500/50 transition-colors mb-6 resize-none" 
+                      rows="3" @bind="_reopenReason" placeholder="Describe what needs to be changed..."></textarea>
+            <div class="grid grid-cols-2 gap-3">
+                <button class="py-2.5 rounded-full border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 font-bold text-xs transition-colors" @onclick="() => { _isReopening = false; _reopenReason = string.Empty; }">
+                    CANCEL
+                </button>
+                <button class="py-2.5 rounded-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-600/20 transition-all active:scale-95" 
+                        disabled="@(string.IsNullOrWhiteSpace(_reopenReason))" @onclick="ConfirmReopen">
+                    REOPEN FOR MODIFICATION
+                </button>
             </div>
         </div>
     </div>
@@ -254,6 +327,10 @@
 
     private bool _isAuditing;
     private string _auditRemark = "";
+    private bool _showModHistory;
+
+    private bool _isReopening;
+    private string _reopenReason = "";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -270,8 +347,10 @@
         if (!string.IsNullOrWhiteSpace(_currentUser))
         {
             Task.AssignedTo = _currentUser;
+            Task.AcceptedBy = _currentUser;
         }
         Task.Status = TaskItemStatus.InProgress;
+        Task.NeedsModification = false;
         await TaskService.UpdateTaskAsync(Task);
         await OnStatusChanged.InvokeAsync();
     }
@@ -280,6 +359,8 @@
     {
         _showConfirmDone = false;
         Task.Status = TaskItemStatus.Completed;
+        Task.CompletedAt = DateTime.UtcNow;
+        Task.CompletedBy = _currentUser ?? "Unknown";
         Task.AuditRemark = _completionRemark;
         await TaskService.UpdateTaskAsync(Task);
         await OnStatusChanged.InvokeAsync();
@@ -298,9 +379,10 @@
     {
         if (string.IsNullOrWhiteSpace(_currentUser)) return;
         
-        // Peer is taking over the task
         Task.AssignedTo = _currentUser;
-        Task.NeedsHelp = false; // Issue resolved by taking over
+        Task.AcceptedBy = _currentUser;
+        Task.NeedsHelp = false;
+        Task.NeedsModification = false;
         Task.HelpDetails = "";
         
         await TaskService.AddRemarkAsync(Task.Id, new TaskRemark {
@@ -316,6 +398,7 @@
     {
         _isAuditing = false;
         Task.AuditRemark = _auditRemark;
+        Task.CompletedBy = _currentUser ?? "Unknown";
         await TaskService.UpdateTaskAsync(Task);
         await OnStatusChanged.InvokeAsync();
     }
@@ -323,10 +406,17 @@
     private async Task AuditBackToInProgress()
     {
         _isAuditing = false;
+        
+        if (Task.NeedsModification && !string.IsNullOrWhiteSpace(Task.HelpDetails))
+        {
+            Task.ModificationHistory.Add(Task.HelpDetails);
+        }
+        
         Task.Status = TaskItemStatus.InProgress;
         Task.AuditRemark = _auditRemark;
-        Task.NeedsHelp = true; // Signal that it needs help/modifications
-        Task.HelpDetails = "Re-opened for modification: " + _auditRemark;
+        Task.NeedsModification = true;
+        Task.NeedsHelp = false;
+        Task.HelpDetails = _auditRemark;
         
         await TaskService.UpdateTaskAsync(Task);
         await OnStatusChanged.InvokeAsync();
@@ -342,14 +432,48 @@
         };
 
         await TaskService.AddRemarkAsync(Task.Id, remark);
-        Task.Remarks.Add(remark); // Local update for UI
+        Task.Remarks.Add(remark);
         _newRemarkContent = "";
         StateHasChanged();
+    }
+
+    private async Task ConfirmReopen()
+    {
+        if (string.IsNullOrWhiteSpace(_reopenReason)) return;
+        
+        _isReopening = false;
+        
+        var reason = _reopenReason;
+        _reopenReason = string.Empty;
+
+        Task.Status = TaskItemStatus.InProgress;
+        Task.NeedsModification = false;
+        Task.NeedsHelp = false;
+        Task.HelpDetails = string.Empty;
+        Task.AuditRemark = string.Empty;
+        
+        await TaskService.AddRemarkAsync(Task.Id, new TaskRemark {
+            Author = _currentUser ?? "Unknown",
+            Content = $"Action: Reopened for Modification. Reason: {reason}"
+        });
+        
+        await TaskService.UpdateTaskAsync(Task);
+        await OnStatusChanged.InvokeAsync();
+    }
+
+    private async Task ReopenTask()
+    {
+        // Replaced by ConfirmReopen with dialogue
     }
 
     private async Task UpdateStatus(TaskItemStatus newStatus)
     {
         Task.Status = newStatus;
+        if (newStatus != TaskItemStatus.InProgress)
+        {
+            Task.NeedsModification = false;
+            Task.NeedsHelp = false;
+        }
         await TaskService.UpdateTaskAsync(Task);
         await OnStatusChanged.InvokeAsync();
     }

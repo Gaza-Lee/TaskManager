@@ -30,7 +30,9 @@ public static class DatabaseHelper
 
         AddColumnIfMissing(command, columns, "NeedsHelp", "INTEGER DEFAULT 0");
         AddColumnIfMissing(command, columns, "HelpDetails", "TEXT DEFAULT ''");
+        AddColumnIfMissing(command, columns, "NeedsModification", "INTEGER DEFAULT 0");
         AddColumnIfMissing(command, columns, "AuditRemark", "TEXT DEFAULT ''");
+        AddColumnIfMissing(command, columns, "ModificationHistory", "TEXT DEFAULT '[]'");
 
         // 2. Create Supplemental Tables
         CreateTableIfNotExists(command, "Remarks", 

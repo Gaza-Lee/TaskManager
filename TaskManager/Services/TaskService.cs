@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using TaskManager.Data;
 using TaskManager.Models;
@@ -6,6 +7,8 @@ namespace TaskManager.Services;
 
 public class TaskService(TaskDbContext db, INotificationService notifications) : ITaskService
 {
+    public event Action? OnTasksChanged;
+
     public async Task<List<TaskItem>> GetTasksAsync()
     {
         return await db.Tasks
@@ -43,6 +46,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         task.CreatedAt = DateTime.UtcNow;
         db.Tasks.Add(task);
         await db.SaveChangesAsync();
+        OnTasksChanged?.Invoke();
     }
 
     public async Task UpdateTaskAsync(TaskItem task)
@@ -55,8 +59,10 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         existing.AssignedTo = task.AssignedTo;
         existing.AssignedBy = task.AssignedBy;
         existing.NeedsHelp = task.NeedsHelp;
+        existing.NeedsModification = task.NeedsModification;
         existing.HelpDetails = task.HelpDetails;
         existing.AuditRemark = task.AuditRemark;
+        existing.ModificationHistory = task.ModificationHistory;
 
         // Check for state changes to trigger notifications
         if (task.AssignedTo.ToLower() != existing.AssignedTo.ToLower() && !string.IsNullOrWhiteSpace(task.AssignedTo))
@@ -100,9 +106,23 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             }
         }
 
+        if (task.NeedsModification && !existing.NeedsModification)
+        {
+            if (!string.IsNullOrWhiteSpace(existing.AssignedTo))
+            {
+                await notifications.AddNotificationAsync(new Notification {
+                    Recipient = existing.AssignedTo,
+                    TaskId = task.Id,
+                    Message = $"Modifications requested for '{task.Title}'.",
+                    Type = NotificationType.NeedsModification
+                });
+            }
+        }
+
         existing.Status = task.Status;
 
         await db.SaveChangesAsync();
+        OnTasksChanged?.Invoke();
     }
 
     public async Task DeleteTaskAsync(Guid taskId)
@@ -112,6 +132,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         {
             db.Tasks.Remove(task);
             await db.SaveChangesAsync();
+            OnTasksChanged?.Invoke();
         }
     }
 
@@ -148,5 +169,6 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         }
 
         await db.SaveChangesAsync();
+        OnTasksChanged?.Invoke();
     }
 }

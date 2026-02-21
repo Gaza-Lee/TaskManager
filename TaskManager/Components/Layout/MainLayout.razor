@@ -1,14 +1,14 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
+<div class="flex h-screen overflow-hidden bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+    <aside class="w-72 flex-shrink-0 border-r border-white/5 bg-slate-900/40 backdrop-blur-xl hidden lg:block overflow-hidden h-full">
         <NavMenu />
-    </div>
+    </aside>
 
-    <main>
-        <article class="content px-4 pt-5">
+    <main class="flex-1 min-w-0 h-full overflow-y-auto custom-scrollbar">
+        <div class="max-w-7xl mx-auto py-12 px-6 sm:px-8 lg:px-12">
             @Body
-        </article>
+        </div>
     </main>
 </div>
 

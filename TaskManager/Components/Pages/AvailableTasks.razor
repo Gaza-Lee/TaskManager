@@ -7,48 +7,48 @@
 
 <PageTitle>Available Tasks - Task Hub</PageTitle>
 
-<div class="container pb-5">
-    <div class="row mb-4">
-        <div class="col">
-            <div class="d-flex align-items-center gap-3 mb-2">
-                <button class="btn btn-outline-light border-0 p-0 text-muted" @onclick='() => Navigation.NavigateTo("/")'>
-                    <i class="bi bi-arrow-left h4"></i>
-                </button>
-                <div>
-                    <h1 class="h1 mb-0 text-white">Available Tasks</h1>
-                    <p class="text-micro mb-0">Tasks ready to be picked up by your team.</p>
-                </div>
+<div class="container mx-auto px-4 pb-20 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+        <div class="flex items-center gap-4">
+            <button class="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all" @onclick='() => Navigation.NavigateTo("/")'>
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div>
+                <h1 class="text-3xl font-black text-white tracking-tight">Open Queue</h1>
+                <p class="text-slate-400 text-sm">Initiatives waiting for a champion.</p>
             </div>
         </div>
-        <div class="col-auto d-flex align-items-center">
-            <span class="badge bg-primary px-3 py-2 status-badge">@(_tasks?.Count ?? 0) tasks</span>
+        <div class="px-4 py-2 rounded-2xl border border-indigo-500/20 flex items-center gap-3">
+            <span class="text-indigo-400 font-bold text-xs uppercase tracking-widest">@(_tasks?.Count ?? 0) Available</span>
         </div>
     </div>
 
     @if (_tasks == null)
     {
-        <div class="col-12 text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+        <div class="flex items-center justify-center py-32">
+            <div class="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
     }
     else if (!_tasks.Any())
     {
-        <div class="col-12 text-center py-5">
-            <i class="bi bi-inbox display-1 text-muted mb-4 d-block"></i>
-            <p class="fs-4 text-white">No tasks currently available.</p>
-            <button class="btn btn-primary mt-3" @onclick='() => Navigation.NavigateTo("/assign-task")'>
-                <i class="bi bi-plus-lg me-2"></i>Create New Task
+        <div class="flex flex-col items-center justify-center py-32 bg-white/5 border border-dashed border-white/10 rounded-3xl">
+            <div class="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center mb-6 text-slate-500">
+                <i class="bi bi-inbox text-3xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">No Challenges Found</h2>
+            <p class="text-slate-500 text-sm mb-8 text-center max-w-xs">All initiatives are currently being handled or have been finalized.</p>
+            <button class="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-full shadow-2xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-3" @onclick='() => Navigation.NavigateTo("/assign-task")'>
+                <i class="bi bi-plus-lg"></i>
+                Create New Initiative
             </button>
         </div>
     }
     else
     {
-        <div class="row g-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach (var task in _tasks)
             {
-                <div class="col-md-6 col-lg-4">
+                <div class="h-full">
                     <TaskCard Task="task" OnStatusChanged="LoadTasks" />
                 </div>
             }

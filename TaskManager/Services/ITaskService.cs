@@ -1,3 +1,4 @@
+using System;
 using TaskManager.Models;
 
 namespace TaskManager.Services;
@@ -11,4 +12,5 @@ public interface ITaskService
     Task UpdateTaskAsync(TaskItem task);
     Task DeleteTaskAsync(Guid taskId);
     Task AddRemarkAsync(Guid taskId, TaskRemark remark);
+    event Action? OnTasksChanged;
 }

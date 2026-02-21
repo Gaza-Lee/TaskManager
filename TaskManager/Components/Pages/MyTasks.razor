@@ -7,94 +7,93 @@
 
 <PageTitle>My Tasks - Task Hub</PageTitle>
 
-<div class="container pb-5">
+<div class="container mx-auto px-4 pb-12 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
     @if (_userName == null)
     {
-        <div class="col-12 text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+        <div class="flex items-center justify-center py-20">
+            <div class="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
     }
     else
     {
-        <div class="row mb-4">
-            <div class="col">
-                <h1 class="h1 mb-1">My Tasks</h1>
-                <p class="text-detail">Personal workspace for <span class="text-white fw-bold">@_userName</span></p>
+        <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div>
+                <h1 class="text-3xl font-black text-white tracking-tighter mb-1">My Task Hub</h1>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Personal initiative stream</p>
+            </div>
+            
+            <div class="flex p-1 bg-white/5 rounded-xl border border-white/5">
+                <button class='px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all @(_activeTab == "to-me" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "text-slate-500 hover:text-white")' 
+                        @onclick='() => SetTab("to-me")'>Assigned To Me</button>
+                <button class='px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all @(_activeTab == "by-me" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "text-slate-500 hover:text-white")' 
+                        @onclick='() => SetTab("by-me")'>Assigned By Me</button>
             </div>
         </div>
 
         <!-- Statistics Section -->
-        <div class="row g-3 mb-5">
-            <div class="col-6 col-md-3">
-                <div class="glass-card text-center p-3 h-100">
-                    <div class="text-micro text-uppercase fw-bold mb-1">Today</div>
-                    <div class="h2 mb-0 text-success">@_stats.Today</div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            @foreach (var stat in new[] { ("Today", _stats.Today), ("Week", _stats.ThisWeek), ("Month", _stats.ThisMonth), ("Year", _stats.ThisYear) })
+            {
+                <div class="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center shadow-lg group hover:border-indigo-500/20 transition-all">
+                    <div class="text-[8px] text-slate-600 font-black uppercase tracking-widest mb-1">@stat.Item1</div>
+                    <div class="text-2xl font-black text-white group-hover:text-indigo-400 transition-colors">@stat.Item2</div>
                 </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="glass-card text-center p-3 h-100">
-                    <div class="text-micro text-uppercase fw-bold mb-1">This Week</div>
-                    <div class="h2 mb-0 text-success">@_stats.ThisWeek</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="glass-card text-center p-3 h-100">
-                    <div class="text-micro text-uppercase fw-bold mb-1">This Month</div>
-                    <div class="h2 mb-0 text-success">@_stats.ThisMonth</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="glass-card text-center p-3 h-100">
-                    <div class="text-micro text-uppercase fw-bold mb-1">This Year</div>
-                    <div class="h2 mb-0 text-success">@_stats.ThisYear</div>
-                </div>
-            </div>
+            }
         </div>
 
-        <div class="row mb-5">
-            <div class="col-12">
-                <h2 class="h2 border-bottom border-white border-opacity-10 pb-3 mb-3 d-flex align-items-center text-white">
-                    <i class="bi bi-arrow-repeat me-2 text-warning"></i> In Progress
+        <div class="space-y-10">
+            <section>
+                <div class="flex items-center justify-between mb-6 border-b border-white/5 pb-3">
+                    <h2 class="text-lg font-black text-white tracking-tight flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                            <i class="bi bi-lightning-charge-fill text-amber-500 text-xs"></i>
+                        </span>
+                        Active
+                    </h2>
                     @if (_inProgressTasks.Any())
                     {
-                        <span class="badge bg-warning text-dark ms-2 rounded-pill status-badge">@_inProgressTasks.Count</span>
+                        <span class="px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-md text-[8px] font-black uppercase border border-amber-500/20">
+                            @_inProgressTasks.Count Tasks
+                        </span>
                     }
-                </h2>
+                </div>
+
                 @{
-                    var needingHelp = _inProgressTasks.Where(t => t.NeedsHelp).ToList();
-                    var onTrack = _inProgressTasks.Where(t => !t.NeedsHelp).ToList();
+                    var needingHelp = _inProgressTasks.Where(t => t.NeedsHelp && !t.NeedsModification).ToList();
+                    var needingMod = _inProgressTasks.Where(t => t.NeedsModification).ToList();
+                    var onTrack = _inProgressTasks.Where(t => !t.NeedsHelp && !t.NeedsModification).ToList();
                 }
 
-                @if (needingHelp.Any())
+                @if (needingMod.Any() || needingHelp.Any())
                 {
-                    <h3 class="h3 text-white mb-3 d-flex align-items-center">
-                        <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i> Needs Attention
-                        <span class="badge bg-danger text-white ms-2 rounded-pill status-badge">@needingHelp.Count</span>
-                    </h3>
-                    <div class="row g-4 mb-4">
-                        @foreach (var task in needingHelp)
-                        {
-                            <div class="col-lg-4 col-md-6">
-                                <TaskCard Task="task" OnStatusChanged="LoadData" />
-                            </div>
-                        }
+                    <div class="mb-8">
+                        <h3 class="text-[8px] font-black uppercase tracking-[0.2em] text-rose-500 mb-4 px-1 flex items-center gap-2">
+                            <span class="w-1 h-1 rounded-full bg-rose-500 animate-pulse"></span>
+                            Action Required
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            @foreach (var task in needingMod)
+                            {
+                                <div class="h-full">
+                                    <TaskCard Task="task" OnStatusChanged="LoadData" />
+                                </div>
+                            }
+                            @foreach (var task in needingHelp)
+                            {
+                                <div class="h-full">
+                                    <TaskCard Task="task" OnStatusChanged="LoadData" />
+                                </div>
+                            }
+                        </div>
                     </div>
                 }
 
                 @if (onTrack.Any())
                 {
-                    @if (needingHelp.Any())
-                    {
-                        <h3 class="h3 text-white mb-3 d-flex align-items-center mt-4">
-                            <i class="bi bi-play-circle-fill me-2 text-primary"></i> On Track
-                        </h3>
-                    }
-                    <div class="row g-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         @foreach (var task in onTrack)
                         {
-                            <div class="col-lg-4 col-md-6">
+                            <div class="h-full">
                                 <TaskCard Task="task" OnStatusChanged="LoadData" />
                             </div>
                         }
@@ -103,41 +102,51 @@
                 
                 @if (!_inProgressTasks.Any())
                 {
-                    <div class="glass-card p-4 text-center">
-                        <p class="text-detail mb-0">No active tasks. Good job!</p>
-                        <a href="tasks/available" class="btn btn-outline-primary btn-sm mt-3 rounded-pill px-4 text-micro fw-bold">Find Available Tasks</a>
+                    <div class="bg-white/5 border border-dashed border-white/10 rounded-[2rem] py-12 text-center">
+                        <div class="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4 text-slate-600">
+                            <i class="bi bi-cup-hot-fill text-xl"></i>
+                        </div>
+                        <p class="text-slate-600 font-bold uppercase tracking-widest text-[8px]">No Active Objectives</p>
+                        <button class="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] uppercase tracking-widest rounded-full transition-all active:scale-95" @onclick='() => Navigation.NavigateTo("/tasks/available")'>
+                            Browse Queue
+                        </button>
                     </div>
                 }
-            </div>
-        </div>
+            </section>
 
-        <div class="row">
-            <div class="col-12">
-                <h2 class="h2 border-bottom border-white border-opacity-10 pb-3 mb-4 d-flex align-items-center text-white">
-                    <i class="bi bi-check-circle-fill me-2 text-success"></i> Recently Completed
-                </h2>
+            <section>
+                <div class="flex items-center justify-between mb-6 border-b border-white/5 pb-3">
+                    <h2 class="text-lg font-black text-white tracking-tight flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                            <i class="bi bi-check2-all text-emerald-500 text-xs"></i>
+                        </span>
+                        Successes
+                    </h2>
+                </div>
+                
                 @if (!_completedTasks.Any())
                 {
-                    <div class="text-muted small italic opacity-50">No completed tasks yet.</div>
+                    <p class="text-[9px] text-slate-700 font-bold uppercase tracking-widest italic ml-1">No completed initiatives.</p>
                 }
                 else
                 {
-                    <div class="row g-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 backdrop-grayscale hover:backdrop-grayscale-0 transition-all duration-500">
                         @foreach (var task in _completedTasks.Take(6))
                         {
-                            <div class="col-lg-4 col-md-6">
+                            <div class="h-full">
                                 <TaskCard Task="task" OnStatusChanged="LoadData" />
                             </div>
                         }
                     </div>
                 }
-            </div>
+            </section>
         </div>
     }
 </div>
 
 @code {
     private string? _userName;
+    private string _activeTab = "to-me";
     private List<TaskItem> _inProgressTasks = new();
     private List<TaskItem> _completedTasks = new();
     private CompletionStats _stats = new();
@@ -157,17 +166,48 @@
         }
     }
 
+    private async Task SetTab(string tab)
+    {
+        _activeTab = tab;
+        await LoadData();
+    }
+
     private async Task LoadData()
     {
         if (_userName == null) return;
         
         var all = await TaskService.GetTasksAsync();
-        var userTasks = all.Where(t => t.AssignedTo.Equals(_userName, StringComparison.OrdinalIgnoreCase)).ToList();
+        
+        IEnumerable<TaskItem> filtered;
+        if (_activeTab == "to-me")
+        {
+            filtered = all.Where(t => t.AssignedTo.Equals(_userName, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            filtered = all.Where(t => t.AssignedBy.Equals(_userName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var userTasks = filtered.ToList();
         
         _inProgressTasks = userTasks.Where(t => t.Status == TaskItemStatus.InProgress).OrderByDescending(t => t.CreatedAt).ToList();
-        _completedTasks = userTasks.Where(t => t.Status == TaskItemStatus.Completed).OrderByDescending(t => t.CompletedAt).ToList();
+        
+        // Successes logic: 
+        // If "Assigned To Me", show tasks I completed.
+        // If "Assigned By Me", show tasks I assigned that are now completed.
+        if (_activeTab == "to-me")
+        {
+             _completedTasks = all.Where(t => t.Status == TaskItemStatus.Completed && t.CompletedBy.Equals(_userName, StringComparison.OrdinalIgnoreCase))
+                               .OrderByDescending(t => t.CompletedAt).ToList();
+        }
+        else
+        {
+            _completedTasks = userTasks.Where(t => t.Status == TaskItemStatus.Completed)
+                               .OrderByDescending(t => t.CompletedAt).ToList();
+        }
         
         CalculateStats(userTasks);
+        StateHasChanged();
     }
 
     private void CalculateStats(List<TaskItem> userTasks)

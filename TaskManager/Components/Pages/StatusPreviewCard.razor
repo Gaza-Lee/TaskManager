@@ -1,41 +1,37 @@
 @using TaskManager.Models
 
-<a href="@HrefPath" class="text-decoration-none">
-    <div class="glass-card d-flex flex-column h-100">
-        <div class="mb-2">
-            <h2 class="h3 mb-0 text-white">@Title</h2>
-            <p class="text-micro mb-0">@Description</p>
+<a href="@HrefPath" class="block group no-underline h-full">
+    <div class="h-full bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-xl p-4 transition-all hover:bg-slate-900/60 hover:border-white/20 flex flex-col shadow-lg">
+        <div class="mb-4">
+            <h2 class="text-sm font-bold text-white mb-0.5 group-hover:text-indigo-400 transition-colors tracking-tight">@Title</h2>
+            <p class="text-[9px] text-slate-500 uppercase font-bold tracking-[0.15em]">@Description</p>
         </div>
 
-        <div class="latest-tasks flex-grow-1">
-            <div class="preview-task-list">
-                @if (Tasks == null || !Tasks.Any())
+        <div class="flex-1 space-y-1.5">
+            @if (Tasks == null || !Tasks.Any())
+            {
+                <div class="h-full min-h-[70px] flex flex-col items-center justify-center border border-dashed border-white/5 rounded-lg bg-white/[0.01]">
+                    <i class="bi bi-inbox text-slate-800 text-lg mb-1"></i>
+                    <span class="text-[8px] text-slate-600 font-bold uppercase tracking-widest italic">Empty</span>
+                </div>
+            }
+            else
+            {
+                @foreach (var task in Tasks.Take(3))
                 {
-                    <div class="empty-preview py-2 text-center mt-2">
-                        <span class="text-muted x-small italic">No tasks</span>
+                    <div class="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 px-2 -mx-2 rounded-md transition-all">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <div class="w-1 h-1 rounded-full flex-shrink-0 @(task.NeedsHelp ? "bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.4)]" : "bg-indigo-500/20")"></div>
+                            <span class="text-xs text-slate-400 font-medium truncate" title="@task.Title">@task.Title</span>
+                        </div>
                     </div>
                 }
-                else
-                {
-                    @foreach (var task in Tasks.Take(3))
-                    {
-                        <div class="preview-task-item py-1 border-bottom border-white border-opacity-10 d-flex align-items-center justify-content-between">
-                            <div class="d-flex align-items-center overflow-hidden">
-                                <i class="bi bi-dot @(task.NeedsHelp ? "text-danger" : "text-primary") fs-5 me-0"></i>
-                                <span class="text-white text-micro text-truncate" title="@task.Title">@task.Title</span>
-                            </div>
-                            @if (task.NeedsHelp)
-                            {
-                                <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 0.6rem;"></i>
-                            }
-                        </div>
-                    }
-                }
-            </div>
+            }
         </div>
 
-        <div class="mt-auto pt-3 text-center border-top border-white border-opacity-10">
-            <span class="btn-view-all">View All <i class="bi bi-arrow-right ms-1"></i></span>
+        <div class="mt-4 pt-2.5 border-t border-white/5 flex items-center justify-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-slate-600 group-hover:text-white transition-colors">
+            <span>Access Vault</span>
+            <i class="bi bi-arrow-right text-[10px] group-hover:translate-x-0.5 transition-transform"></i>
         </div>
     </div>
 </a>

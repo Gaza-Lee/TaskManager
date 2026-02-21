@@ -7,79 +7,91 @@
 
 <PageTitle>Notifications - Task Hub</PageTitle>
 
-<div class="container pb-5">
+<div class="container mx-auto px-4 pb-20 max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
     @if (_userName == null)
     {
-        <div class="col-12 text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+        <div class="flex items-center justify-center py-32">
+            <div class="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
     }
     else
     {
-        <div class="row mb-4">
-            <div class="col d-flex justify-content-between align-items-end">
-                <div>
-                    <h1 class="h1 mb-1">Notifications</h1>
-                    <p class="text-detail">Stay updated on your task activities</p>
-                </div>
-                @if (_notifications != null && _notifications.Any(n => !n.IsRead))
-                {
-                    <button class="btn btn-outline-primary btn-sm rounded-pill px-4 text-micro fw-bold mb-2" @onclick="MarkAllAsRead">
-                        Mark All as Read
-                    </button>
-                }
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div>
+                <h1 class="text-xl font-black text-white tracking-tight mb-0.5">Alert Feed</h1>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Collective Records</p>
             </div>
+            @if (_notifications != null && _notifications.Any(n => !n.IsRead))
+            {
+                <button class="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95" @onclick="MarkAllAsRead">
+                    Clear Alerts
+                </button>
+            }
         </div>
 
-        <div class="row">
-            <div class="col-12">
-                @if (_notifications == null)
-                {
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status"></div>
+        <div class="space-y-12">
+            @if (_notifications == null)
+            {
+                <div class="flex items-center justify-center py-20">
+                    <div class="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            }
+            else if (!_notifications.Any())
+            {
+                <div class="bg-slate-900/40 backdrop-blur-md border border-dashed border-white/10 rounded-[2.5rem] p-20 text-center">
+                    <div class="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-6 text-slate-600">
+                        <i class="bi bi-bell-slash text-3xl"></i>
                     </div>
-                }
-                else if (!_notifications.Any())
+                    <p class="text-slate-500 font-bold uppercase tracking-widest text-[10px]">No Transmissions Found</p>
+                </div>
+            }
+            else
+            {
+                var grouped = _notifications.GroupBy(n => n.CreatedAt.Date).OrderByDescending(g => g.Key);
+                @foreach (var group in grouped)
                 {
-                    <div class="glass-card p-5 text-center">
-                        <i class="bi bi-bell-slash fs-1 text-muted opacity-25 d-block mb-3"></i>
-                        <p class="text-detail mb-0">No notifications yet. You're all caught up!</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="glass-card overflow-hidden">
-                        @foreach (var notification in _notifications)
-                        {
-                            <div class="notification-item p-4 border-bottom border-white border-opacity-5 hover-bg-white-5 cursor-pointer @(notification.IsRead ? "opacity-60" : "bg-primary bg-opacity-5 shadow-inner")"
-                                 @onclick="() => HandleNotificationClick(notification)">
-                                <div class="d-flex gap-4 align-items-start">
-                                    <div class="flex-shrink-0">
-                                        <div class="icon-circle bg-dark bg-opacity-50 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
-                                            <i class="bi @GetIcon(notification.Type) @GetIconColor(notification.Type) fs-4"></i>
-                                        </div>
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-start mb-1">
-                                            <div class="text-detail text-white fs-5 fw-medium">@notification.Message</div>
-                                            <div class="text-micro opacity-50 ms-3 whitespace-nowrap">@GetTimeAgo(notification.CreatedAt)</div>
-                                        </div>
-                                        <div class="text-micro text-primary-light text-uppercase fw-bold ls-wider">@notification.Type.ToString().Replace("([a-z])([A-Z])", "$1 $2")</div>
-                                    </div>
+                    <div>
+                        <h3 class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-6 px-1">
+                            @GetGroupHeader(group.Key)
+                        </h3>
+                        <div class="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl overflow-hidden shadow-2xl divide-y divide-white/5">
+                            @foreach (var notification in group)
+                            {
+                                <div class="group p-4 hover:bg-white/[0.02] cursor-pointer transition-all @(notification.IsRead ? "opacity-40" : "bg-indigo-500/[0.03]") relative"
+                                     @onclick="() => HandleNotificationClick(notification)">
                                     @if (!notification.IsRead)
                                     {
-                                        <div class="flex-shrink-0 ms-2">
-                                            <div class="bg-primary rounded-circle" style="width: 10px; height: 10px;"></div>
-                                        </div>
+                                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
                                     }
+                                    <div class="flex gap-4 items-start">
+                                        <div class="flex-shrink-0">
+                                            <div class="w-10 h-10 rounded-xl bg-slate-800/80 flex items-center justify-center border border-white/5 transition-transform group-hover:scale-105 shadow-lg">
+                                                <i class="bi @GetIcon(notification.Type) @(notification.IsRead ? "text-slate-600" : GetIconColor(notification.Type)) text-base"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow min-w-0 py-1">
+                                            <div class="flex justify-between items-start mb-1 gap-4">
+                                                <div class="text-xs text-white font-medium group-hover:text-indigo-400 transition-colors leading-snug">@notification.Message</div>
+                                                <div class="text-[9px] text-slate-600 font-bold whitespace-nowrap">@notification.CreatedAt.ToString("HH:mm")</div>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-[8px] font-black uppercase tracking-[0.2em] @(notification.IsRead ? "text-slate-700" : "text-indigo-400")">@notification.Type.ToString().ToUpper()</span>
+                                                @if (!notification.IsRead)
+                                                {
+                                                    <span class="text-[8px] font-black uppercase tracking-widest text-indigo-500/40">NEW</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <i class="bi bi-chevron-right text-slate-600"></i>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        }
+                            }
+                        </div>
                     </div>
                 }
-            </div>
+            }
         </div>
     }
 </div>
@@ -147,6 +159,16 @@
         NotificationType.StatusUpdate => "text-success",
         _ => "text-white"
     };
+
+    private string GetGroupHeader(DateTime date)
+    {
+        var diff = (DateTime.UtcNow.Date - date.Date).Days;
+        return diff switch {
+            0 => "Signals Today",
+            1 => "Signals Yesterday",
+            _ => date.ToString("MMMM dd, yyyy").ToUpper()
+        };
+    }
 
     private string GetTimeAgo(DateTime dt)
     {

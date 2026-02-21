@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using System
 @using TaskManager.Models
 @using TaskManager.Services
 @inject ITaskService TaskService
@@ -7,107 +8,107 @@
 
 <PageTitle>Dashboard - Task Hub</PageTitle>
 
-<div class="container pb-5">
-    <div class="row mb-5">
-        <div class="col-lg-8">
-            <h1 class="h1 mb-1">Team Dashboard</h1>
-            <p class="text-detail">Real-time overview of active and completed initiatives.</p>
+<div class="animate-in fade-in duration-700 max-w-7xl mx-auto">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-black text-white tracking-tighter mb-0.5">Team Hub</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Collective Objective Stream</p>
         </div>
-        <div class="col-lg-4 d-flex align-items-center">
-            <input type="text" class="form-control" placeholder="Search tasks..." 
+        <div class="w-full md:w-64 group relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <i class="bi bi-search text-slate-500 text-xs"></i>
+            </div>
+            <input type="text" class="w-full bg-white/5 border border-white/10 text-white text-[11px] pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:border-indigo-500/40 focus:bg-white/[0.08] transition-all" 
+                   placeholder="Search..." 
                    @bind="_searchQuery" @bind:event="oninput" @onkeyup="HandleSearch" />
         </div>
     </div>
 
     @if (_tasks == null)
     {
-        <div class="col-12 text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+        <div class="flex items-center justify-center py-32">
+            <div class="w-12 h-12 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
     }
     else
     {
-
-        <div class="row g-4 mb-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
             <!-- Available Tasks Card -->
-            <div class="col-lg-4">
-                <StatusPreviewCard 
-                    Title="Available" 
-                    Description="Tasks waiting to be picked up." 
-                    Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.Available).ToList())"
-                    HrefPath="/tasks/available" />
-            </div>
+            <StatusPreviewCard 
+                Title="Available" 
+                Description="Unassigned Initiatives" 
+                Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.Available).ToList())"
+                HrefPath="/tasks/available" />
 
             <!-- In Progress Tasks Card -->
-            <div class="col-lg-4">
-                <StatusPreviewCard 
-                    Title="In Progress" 
-                    Description="Tasks currently being worked on." 
-                    Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.InProgress).ToList())"
-                    HrefPath="/tasks/inprogress" />
-            </div>
+            <StatusPreviewCard 
+                Title="In Progress" 
+                Description="In Execution" 
+                Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.InProgress).ToList())"
+                HrefPath="/tasks/inprogress" />
 
             <!-- Completed Tasks Card -->
-            <div class="col-lg-4">
-                <StatusPreviewCard 
-                    Title="Completed" 
-                    Description="Finalized and archived tasks." 
-                    Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.Completed).OrderByDescending(t => t.CompletedAt).ToList())"
-                    HrefPath="/tasks/completed" />
-            </div>
+            <StatusPreviewCard 
+                Title="Completed" 
+                Description="Finalized Work" 
+                Tasks="@(_tasks.Where(t => t.Status == TaskItemStatus.Completed).OrderByDescending(t => t.CompletedAt).ToList())"
+                HrefPath="/tasks/completed" />
         </div>
 
-        <div class="row">
-            <div class="col-12">
-                <div class="glass-card">
-                    <h2 class="h3 border-bottom border-white border-opacity-10 pb-3 mb-3 d-flex align-items-center text-white">
-                        <i class="bi bi-activity me-2 text-primary"></i> Recent Activity
-                    </h2>
-                    
-                    @if (!_tasks.Any())
+        <div class="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+            <div class="px-8 py-5 border-b border-white/5 flex items-center justify-between">
+                <h2 class="text-xs font-black text-white uppercase tracking-widest">
+                    Recent Activity
+                </h2>
+                <div class="text-[9px] text-slate-500 font-bold uppercase tracking-widest bg-white/5 px-2.5 py-0.5 rounded-full">
+                    Last 8 Events
+                </div>
+            </div>
+            
+            <div class="divide-y divide-white/5">
+                @if (!_tasks.Any())
+                {
+                    <div class="text-center py-10 text-slate-600 font-bold uppercase tracking-widest text-[9px] italic">
+                        Silence in the forge... No activity yet.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var task in _tasks.OrderByDescending(t => t.Status == TaskItemStatus.Completed ? t.CompletedAt : t.CreatedAt).Take(8))
                     {
-                        <div class="text-center py-3 text-muted x-small">
-                            No recent activity found.
+                        <div class="flex justify-between items-center group hover:bg-white/[0.02] transition-colors p-4">
+                            <div class="flex flex-col gap-1">
+                                <div class="text-xs text-white font-bold group-hover:text-indigo-400 transition-colors">@task.Title</div>
+                                <div class="flex items-center gap-2">
+                                    @if (task.Status == TaskItemStatus.Completed)
+                                    {
+                                        <span class="text-[9px] text-emerald-400 px-2 py-0.5 rounded-md font-black uppercase tracking-widest border border-emerald-500/30">Done</span>
+                                    }
+                                    else if (task.NeedsHelp)
+                                    {
+                                        <span class="text-[9px] text-rose-500 px-2 py-0.5 rounded-md font-black uppercase tracking-widest border border-rose-500/30">Help Needed</span>
+                                    }
+                                    else if (task.Status == TaskItemStatus.InProgress)
+                                    {
+                                        <span class="text-[9px] text-sky-400 px-2 py-0.5 rounded-md font-black uppercase tracking-widest border border-sky-500/30">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-[9px] text-indigo-400 px-2 py-0.5 rounded-md font-black uppercase tracking-widest border border-indigo-500/30">Manifested</span>
+                                    }
+                                    <span class="text-[9px] text-slate-600 font-medium">@(task.Status == TaskItemStatus.Completed ? task.CompletedAt?.ToString("MMM dd HH:mm") : task.CreatedAt.ToString("MMM dd HH:mm"))</span>
+                                    <span class="text-[9px] text-slate-500 italic ml-2">By @task.AssignedTo</span>
+                                </div>
+                            </div>
+                            <a href="@GetStatusHref(task.Status)" class="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 hover:text-white hover:bg-white/10 transition-all no-underline">
+                                <i class="bi bi-arrow-up-right"></i>
+                            </a>
                         </div>
                     }
-                    else
-                    {
-                        @foreach (var task in _tasks.OrderByDescending(t => t.Status == TaskItemStatus.Completed ? t.CompletedAt : t.CreatedAt).Take(8))
-                        {
-                            <div class="activity-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <div class="text-detail mb-0 text-white fw-bold">@task.Title</div>
-                                    <div class="text-micro mt-1">
-                                        @if (task.Status == TaskItemStatus.Completed)
-                                        {
-                                            <span class="text-success fw-bold me-1"><i class="bi bi-check-circle-fill"></i> Done</span>
-                                        }
-                                        else if (task.NeedsHelp)
-                                        {
-                                            <span class="text-danger fw-bold me-1"><i class="bi bi-exclamation-triangle-fill"></i> Needs Help</span>
-                                        }
-                                        else if (task.Status == TaskItemStatus.InProgress)
-                                        {
-                                            <span class="text-info fw-bold me-1"><i class="bi bi-arrow-repeat"></i> Active</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-primary fw-bold me-1"><i class="bi bi-plus-circle-fill"></i> New</span>
-                                        }
-                                        <span>@(task.Status == TaskItemStatus.Completed ? task.CompletedAt?.ToString("MMM dd") : task.CreatedAt.ToString("MMM dd"))</span>
-                                        <span class="mx-1">|</span>
-                                        <span>To: @task.AssignedTo</span>
-                                    </div>
-                                </div>
-                                <a href="@GetStatusHref(task.Status)" class="btn btn-sm btn-link text-white-50 p-0 px-2">
-                                    <i class="bi bi-chevron-right text-micro"></i>
-                                </a>
-                            </div>
-                        }
-                    }
-                </div>
+                }
+            </div>
+            <div class="bg-indigo-600/[0.03] p-4 text-center">
+                <p class="text-[8px] text-indigo-400/50 uppercase font-black tracking-[0.2em]">End of Transmission</p>
             </div>
         </div>
     }
@@ -122,6 +123,8 @@
     {
         if (firstRender)
         {
+            UserIdentity.OnUserChanged += HandleUserChanged;
+            TaskService.OnTasksChanged += HandleTasksChanged;
             _userName = await UserIdentity.GetCurrentUserAsync();
             if (string.IsNullOrWhiteSpace(_userName))
             {
@@ -144,6 +147,25 @@
     private async Task HandleSearch()
     {
         _tasks = await TaskService.SearchTasksAsync(_searchQuery);
+    }
+
+    private async void HandleUserChanged()
+    {
+        _userName = await UserIdentity.GetCurrentUserAsync();
+        await LoadTasks();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void HandleTasksChanged()
+    {
+        await LoadTasks();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        UserIdentity.OnUserChanged -= HandleUserChanged;
+        TaskService.OnTasksChanged -= HandleTasksChanged;
     }
 
     private static string GetStatusHref(TaskItemStatus status) => status switch

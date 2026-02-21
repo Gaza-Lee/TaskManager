@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaskManager.Models;
+using System.Text.Json;
 
 namespace TaskManager.Data;
 
@@ -19,6 +20,9 @@ public class TaskDbContext(DbContextOptions<TaskDbContext> options) : DbContext(
             entity.Property(t => t.AssignedTo).HasMaxLength(100);
             entity.Property(t => t.AssignedBy).HasMaxLength(100);
             entity.Property(t => t.Status).HasConversion<string>();
+            entity.Property(t => t.ModificationHistory).HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
             entity.HasMany(t => t.Remarks).WithOne().HasForeignKey(r => r.TaskId).OnDelete(DeleteBehavior.Cascade);
         });
 

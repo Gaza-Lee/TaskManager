@@ -1,33 +1,33 @@
-﻿@using System.Linq
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid justify-content-between px-3">
-        <a class="navbar-brand fw-bold d-flex align-items-center" href="">
-            <div class="brand-icon me-2">
-                <i class="bi bi-layers-fill text-primary"></i>
-            </div>
-            <span class="ls-tight">Task Hub</span>
-        </a>
-    </div>
+﻿@using System
+@using System.Linq
+
+<div class="h-20 flex items-center px-8 border-b border-white/5 bg-slate-900/50 backdrop-blur-md">
+    <a class="flex items-center group no-underline" href="">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center mr-4 shadow-xl shadow-indigo-600/30 group-hover:scale-105 transition-transform">
+            <i class="bi bi-stack text-white text-xl"></i>
+        </div>
+        <span class="text-white font-black tracking-tighter text-lg">TASK HUB</span>
+    </a>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<input type="checkbox" title="Navigation menu" class="navbar-toggler hidden" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column px-2 mt-4">
+<div class="flex flex-col h-[calc(100vh-4rem)]">
+    <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
         <div class="nav-item">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <i class="bi bi-grid-1x2 me-3"></i>
+            <NavLink class="flex items-center px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold no-underline [&.active]:bg-indigo-600/10 [&.active]:text-indigo-400 [&.active]:shadow-sm" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-grid-1x2 mr-4 text-lg opacity-70"></i>
                 <span>Dashboard</span>
             </NavLink>
         </div>
 
         <div class="nav-item">
-            <NavLink class="nav-link" href="my-tasks">
-                <i class="bi bi-person-badge me-3"></i>
-                <span>My Task</span>
+            <NavLink class="flex items-center px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold no-underline [&.active]:bg-indigo-600/10 [&.active]:text-indigo-400 [&.active]:shadow-sm" href="my-tasks">
+                <i class="bi bi-person-badge mr-4 text-lg opacity-70"></i>
+                <span class="flex-1">My Task</span>
                 @if (_myTasksCount > 0)
                 {
-                    <span class="badge rounded-pill bg-primary ms-auto" style="font-size: 0.65rem; padding: 0.25rem 0.5rem; opacity: 0.9;">
+                    <span class="px-2 py-0.5 rounded-full bg-indigo-600 text-[10px] text-white shadow-lg shadow-indigo-600/20">
                         @_myTasksCount
                     </span>
                 }
@@ -37,13 +37,12 @@
         @if (!string.IsNullOrEmpty(_userName))
         {
             <div class="nav-item">
-                <NavLink class="nav-link" href="notifications">
-                    <i class="bi bi-bell me-3"></i>
-                    <span>Notifications</span>
+                <NavLink class="flex items-center px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold no-underline [&.active]:bg-indigo-600/10 [&.active]:text-indigo-400 [&.active]:shadow-sm" href="notifications">
+                    <i class="bi bi-bell mr-4 text-lg opacity-70"></i>
+                    <span class="flex-1">Notifications</span>
                     @if (_unreadCount > 0)
                     {
-                        <span class="badge rounded-pill bg-danger ms-auto shadow-glow pulse" 
-                              style="font-size: 0.65rem; padding: 0.25rem 0.5rem;">
+                        <span class="px-2 py-0.5 rounded-full bg-rose-500 text-[10px] text-white shadow-lg shadow-rose-500/20 animate-pulse">
                             @_unreadCount
                         </span>
                     }
@@ -51,22 +50,27 @@
             </div>
         }
 
-        <div class="nav-item mt-2">
-            <NavLink class="nav-link btn-assignment rounded-pill" href="assign-task">
-                <i class="bi bi-plus-lg me-2"></i>
-                <span class="small fw-bold text-uppercase">Create Task</span>
+        <div class="pt-4 px-4">
+            <NavLink class="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all active:scale-95 no-underline" href="assign-task">
+                <i class="bi bi-plus-lg text-sm"></i>
+                <span class="text-xs font-black uppercase tracking-widest">Create Task</span>
             </NavLink>
         </div>
     </nav>
 
-    <div class="user-pill-container mt-auto px-4 pb-4">
-        <div class="glass-card py-2 px-3 d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center overflow-hidden">
-                <i class="bi bi-person-circle text-primary me-2 flex-shrink-0"></i>
-                <span class="xx-small text-white fw-bold text-truncate" title="@_userName">@(_userName ?? "Guest")</span>
+    <div class="p-4 border-t border-white/5">
+        <div class="p-3 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between group">
+            <div class="flex items-center gap-3 overflow-hidden">
+                <div class="w-8 h-8 rounded-full bg-indigo-600/20 flex items-center justify-center border border-indigo-500/20">
+                    <i class="bi bi-person-circle text-indigo-400"></i>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Current User</span>
+                    <span class="text-xs text-white font-bold truncate" title="@_userName">@(_userName ?? "Guest")</span>
+                </div>
             </div>
-            <a href="set-name" class="text-white text-decoration-none hover-white ms-2" title="Change Name">
-                <i class="bi bi-pencil-square small"></i>
+            <a href="set-name" class="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Change Name">
+                <i class="bi bi-pencil-square"></i>
             </a>
         </div>
     </div>
@@ -89,6 +93,7 @@
         {
             UserIdentity.OnUserChanged += HandleUserChanged;
             NotificationService.OnNotificationsChanged += HandleNotificationsChanged;
+            TaskService.OnTasksChanged += HandleTasksChanged;
             _userName = await UserIdentity.GetCurrentUserAsync();
             await LoadData();
             StateHasChanged();
@@ -101,7 +106,7 @@
         _unreadCount = await NotificationService.GetUnreadCountAsync(_userName);
         
         var tasks = await TaskService.GetTasksForUserAsync(_userName);
-        _myTasksCount = tasks.Count(t => t.Status != TaskItemStatus.Completed);
+        _myTasksCount = tasks.Count(t => t.Status == TaskItemStatus.InProgress);
     }
 
     private async void HandleUserChanged()
@@ -117,10 +122,17 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    private async void HandleTasksChanged()
+    {
+        await LoadData();
+        await InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         UserIdentity.OnUserChanged -= HandleUserChanged;
         NotificationService.OnNotificationsChanged -= HandleNotificationsChanged;
+        TaskService.OnTasksChanged -= HandleTasksChanged;
     }
 }
 

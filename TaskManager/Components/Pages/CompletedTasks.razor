@@ -7,45 +7,44 @@
 
 <PageTitle>Completed Tasks - Task Hub</PageTitle>
 
-<div class="container pb-5">
-    <div class="row mb-4">
-        <div class="col">
-            <div class="d-flex align-items-center gap-3 mb-2">
-                <button class="btn btn-outline-light border-0 p-0 text-muted" @onclick='() => Navigation.NavigateTo("/")'>
-                    <i class="bi bi-arrow-left h4"></i>
-                </button>
-                <div>
-                    <h1 class="h1 mb-0 text-white">Completed Tasks</h1>
-                    <p class="text-micro mb-0">Finalized and archived work items.</p>
-                </div>
+<div class="container mx-auto px-4 pb-20 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+        <div class="flex items-center gap-4">
+            <button class="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all" @onclick='() => Navigation.NavigateTo("/")'>
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div>
+                <h1 class="text-3xl font-black text-white tracking-tight">The Vault</h1>
+                <p class="text-slate-400 text-sm">Archived excellence and finalized work.</p>
             </div>
         </div>
-        <div class="col-auto d-flex align-items-center">
-            <span class="badge bg-success px-3 py-2 status-badge">@(_tasks?.Count ?? 0) tasks</span>
+        <div class="px-4 py-2 rounded-2xl border border-emerald-500/20 flex items-center gap-3">
+            <span class="text-emerald-400 font-bold text-xs uppercase tracking-widest">@(_tasks?.Count ?? 0) Finalized</span>
         </div>
     </div>
 
     @if (_tasks == null)
     {
-        <div class="col-12 text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+        <div class="flex items-center justify-center py-32">
+            <div class="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
     }
     else if (!_tasks.Any())
     {
-        <div class="col-12 text-center py-5">
-            <i class="bi bi-check-circle display-1 text-muted mb-4 d-block"></i>
-            <p class="fs-4 text-white">No completed tasks yet.</p>
+        <div class="flex flex-col items-center justify-center py-32 bg-white/5 border border-dashed border-white/10 rounded-3xl">
+            <div class="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center mb-6 text-slate-500">
+                <i class="bi bi-check2-all text-3xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Vault Empty</h2>
+            <p class="text-slate-500 text-sm text-center max-w-xs">No tasks have been completed yet. Time to get to work!</p>
         </div>
     }
     else
     {
-        <div class="row g-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach (var task in _tasks)
             {
-                <div class="col-md-6 col-lg-4">
+                <div class="h-full">
                     <TaskCard Task="task" OnStatusChanged="LoadTasks" />
                 </div>
             }
