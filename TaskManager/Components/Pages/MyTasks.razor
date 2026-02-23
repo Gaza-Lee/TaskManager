@@ -4,6 +4,8 @@
 @inject ITaskService TaskService
 @inject UserIdentityService UserIdentity
 @inject NavigationManager Navigation
+@inject TaskStateService TaskState
+@implements IDisposable
 
 <PageTitle>My Tasks - Task Hub</PageTitle>
 
@@ -74,14 +76,14 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             @foreach (var task in needingMod)
                             {
-                                <div class="h-full">
-                                    <TaskCard Task="task" OnStatusChanged="LoadData" />
+                                <div id="task-@task.Id" class="h-full @(task.Id == TaskState.ActiveTaskId ? "task-active" : "")">
+                                    <TaskCard Task="task" OnStatusChanged="LoadData" OnOpenRemarks="t => _drawer!.Open(t)" />
                                 </div>
                             }
                             @foreach (var task in needingHelp)
                             {
-                                <div class="h-full">
-                                    <TaskCard Task="task" OnStatusChanged="LoadData" />
+                                <div id="task-@task.Id" class="h-full @(task.Id == TaskState.ActiveTaskId ? "task-active" : "")">
+                                    <TaskCard Task="task" OnStatusChanged="LoadData" OnOpenRemarks="t => _drawer!.Open(t)" />
                                 </div>
                             }
                         </div>
@@ -93,8 +95,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         @foreach (var task in onTrack)
                         {
-                            <div class="h-full">
-                                <TaskCard Task="task" OnStatusChanged="LoadData" />
+                            <div id="task-@task.Id" class="h-full @(task.Id == TaskState.ActiveTaskId ? "task-active" : "")">
+                                <TaskCard Task="task" OnStatusChanged="LoadData" OnOpenRemarks="t => _drawer!.Open(t)" />
                             </div>
                         }
                     </div>
@@ -133,8 +135,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 backdrop-grayscale hover:backdrop-grayscale-0 transition-all duration-500">
                         @foreach (var task in _completedTasks.Take(6))
                         {
-                            <div class="h-full">
-                                <TaskCard Task="task" OnStatusChanged="LoadData" />
+                            <div id="task-@task.Id" class="h-full @(task.Id == TaskState.ActiveTaskId ? "task-active" : "")">
+                                <TaskCard Task="task" OnStatusChanged="LoadData" OnOpenRemarks="t => _drawer!.Open(t)" />
                             </div>
                         }
                     </div>
@@ -144,13 +146,15 @@
     }
 </div>
 
+<RemarkDrawer @ref="_drawer" CurrentUser="@_userName" OnRemarkAdded="LoadData" />
+
 @code {
     private string? _userName;
     private string _activeTab = "to-me";
     private List<TaskItem> _inProgressTasks = new();
     private List<TaskItem> _completedTasks = new();
     private CompletionStats _stats = new();
-
+    private RemarkDrawer? _drawer;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -166,6 +170,16 @@
         }
     }
 
+    protected override async Task OnInitializedAsync()
+    {
+        TaskState.OnChange += StateHasChanged;
+        await LoadData();
+    }
+
+    public void Dispose()
+    {
+        TaskState.OnChange -= StateHasChanged;
+    }
     private async Task SetTab(string tab)
     {
         _activeTab = tab;
@@ -181,7 +195,9 @@
         IEnumerable<TaskItem> filtered;
         if (_activeTab == "to-me")
         {
-            filtered = all.Where(t => t.AssignedTo.Equals(_userName, StringComparison.OrdinalIgnoreCase));
+            filtered = all.Where(t =>
+                t.AssignedTo.Equals(_userName, StringComparison.OrdinalIgnoreCase) ||
+                t.AcceptedBy.Equals(_userName, StringComparison.OrdinalIgnoreCase));
         }
         else
         {

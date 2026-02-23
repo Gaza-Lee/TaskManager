@@ -5,6 +5,7 @@
 @inject ITaskService TaskService
 @inject UserIdentityService UserIdentity
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <PageTitle>Dashboard - Task Hub</PageTitle>
 
@@ -98,9 +99,9 @@
                                     }
                                     @{
                                         var roleLabel = task.Status switch {
-                                            TaskItemStatus.Available => "assigned to:",
-                                            TaskItemStatus.InProgress => "accepted by:",
-                                            _ => "completed by:"
+                                            TaskItemStatus.Available => "Assigned to:",
+                                            TaskItemStatus.InProgress => "Accepted by:",
+                                            _ => "Completed by:"
                                         };
                                         var participant = task.Status switch {
                                             TaskItemStatus.Available => task.AssignedTo,

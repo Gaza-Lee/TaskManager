@@ -54,6 +54,12 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         var existing = await db.Tasks.FindAsync(task.Id);
         if (existing is null) return;
 
+        // Capture original values BEFORE mutations so change-detection comparisons are valid
+        var originalAssignedTo = existing.AssignedTo;
+        var wasCompleted = existing.Status == TaskItemStatus.Completed;
+        var wasNeedsHelp = existing.NeedsHelp;
+        var wasNeedsModification = existing.NeedsModification;
+
         existing.Title = task.Title;
         existing.Description = task.Description;
         existing.AssignedTo = task.AssignedTo;
@@ -66,8 +72,8 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         existing.AcceptedBy = task.AcceptedBy;
         existing.CompletedBy = task.CompletedBy;
 
-        // Check for state changes to trigger notifications
-        if (task.AssignedTo.ToLower() != existing.AssignedTo.ToLower() && !string.IsNullOrWhiteSpace(task.AssignedTo))
+        // Check for state changes to trigger notifications (use original captured values)
+        if (!task.AssignedTo.Equals(originalAssignedTo, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(task.AssignedTo))
         {
             await notifications.AddNotificationAsync(new Notification {
                 Recipient = task.AssignedTo,
@@ -77,15 +83,28 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             });
         }
 
-        if (task.Status == TaskItemStatus.Completed && existing.Status != TaskItemStatus.Completed)
+        if (task.Status == TaskItemStatus.InProgress && existing.Status == TaskItemStatus.Available)
         {
-            existing.CompletedAt = DateTime.UtcNow;
-            if (!string.IsNullOrWhiteSpace(existing.AssignedBy) && existing.AssignedBy != task.AssignedTo)
+            if (!string.IsNullOrWhiteSpace(existing.AssignedBy) && !existing.AssignedBy.Equals(task.AcceptedBy, StringComparison.OrdinalIgnoreCase))
             {
                 await notifications.AddNotificationAsync(new Notification {
                     Recipient = existing.AssignedBy,
                     TaskId = task.Id,
-                    Message = $"{task.AssignedTo} completed '{task.Title}'. Ready for audit.",
+                    Message = $"{task.AcceptedBy} accepted your task '{task.Title}'.",
+                    Type = NotificationType.TaskAccepted
+                });
+            }
+        }
+
+        if (task.Status == TaskItemStatus.Completed && existing.Status != TaskItemStatus.Completed)
+        {
+            existing.CompletedAt = DateTime.UtcNow;
+            if (!string.IsNullOrWhiteSpace(existing.AssignedBy) && existing.AssignedBy != (task.CompletedBy ?? task.AcceptedBy))
+            {
+                await notifications.AddNotificationAsync(new Notification {
+                    Recipient = existing.AssignedBy,
+                    TaskId = task.Id,
+                    Message = $"{task.CompletedBy ?? task.AcceptedBy} completed '{task.Title}'. Ready for audit.",
                     Type = NotificationType.StatusUpdate
                 });
             }
@@ -95,7 +114,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             existing.CompletedAt = null;
         }
 
-        if (task.NeedsHelp && !existing.NeedsHelp)
+        if (task.NeedsHelp && !wasNeedsHelp)
         {
             if (!string.IsNullOrWhiteSpace(existing.AssignedBy) && existing.AssignedBy != task.AssignedTo)
             {
@@ -108,7 +127,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             }
         }
 
-        if (task.NeedsModification && !existing.NeedsModification)
+        if (task.NeedsModification && !wasNeedsModification)
         {
             if (!string.IsNullOrWhiteSpace(existing.AssignedTo))
             {
@@ -122,7 +141,8 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         }
 
         existing.Status = task.Status;
-        existing.CompletedAt = task.CompletedAt; // This line is moved here to ensure it's persisted if explicitly set in the incoming task, after status-based logic.
+        // NOTE: CompletedAt is already set correctly inside the status-change branches above.
+        // Do NOT overwrite it here — that would wipe the timestamp set when status became Completed.
 
         await db.SaveChangesAsync();
         OnTasksChanged?.Invoke();
@@ -153,18 +173,20 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         var task = await db.Tasks.FindAsync(taskId);
         if (task != null)
         {
-            // Notify the assigned user if someone else commented
-            if (!string.IsNullOrWhiteSpace(task.AssignedTo) && task.AssignedTo != remark.Author)
+            // Notify the "worker" (AcceptedBy or AssignedTo) if someone else commented
+            var worker = !string.IsNullOrWhiteSpace(task.AcceptedBy) ? task.AcceptedBy : task.AssignedTo;
+            if (!string.IsNullOrWhiteSpace(worker) && worker != remark.Author)
             {
                 await notifications.AddNotificationAsync(new Notification {
-                    Recipient = task.AssignedTo,
+                    Recipient = worker,
                     TaskId = taskId,
                     Message = $"{remark.Author} added a remark to '{task.Title}'.",
                     Type = NotificationType.RemarkAdded
                 });
             }
+
             // Notify the creator if someone else commented
-            if (!string.IsNullOrWhiteSpace(task.AssignedBy) && task.AssignedBy != remark.Author && task.AssignedBy != task.AssignedTo)
+            if (!string.IsNullOrWhiteSpace(task.AssignedBy) && task.AssignedBy != remark.Author && task.AssignedBy != worker)
             {
                 await notifications.AddNotificationAsync(new Notification {
                     Recipient = task.AssignedBy,

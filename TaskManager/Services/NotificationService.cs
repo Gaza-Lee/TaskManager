@@ -49,6 +49,17 @@ public class NotificationService(TaskDbContext db) : INotificationService
         OnNotificationsChanged?.Invoke();
     }
 
+    public async Task ClearAllNotificationsAsync(string userName)
+    {
+        var notifications = await db.Notifications
+            .Where(n => n.Recipient.ToLower() == userName.ToLower())
+            .ToListAsync();
+        
+        db.Notifications.RemoveRange(notifications);
+        await db.SaveChangesAsync();
+        OnNotificationsChanged?.Invoke();
+    }
+
     public async Task<int> GetUnreadCountAsync(string userName)
     {
         return await db.Notifications

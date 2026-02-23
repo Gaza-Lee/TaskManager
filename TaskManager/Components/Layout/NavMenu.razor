@@ -42,9 +42,7 @@
                     <span class="flex-1">Notifications</span>
                     @if (_unreadCount > 0)
                     {
-                        <span class="px-2 py-0.5 rounded-full bg-rose-500 text-[10px] text-white shadow-lg shadow-rose-500/20 animate-pulse">
-                            @_unreadCount
-                        </span>
+                        <span class="px-2 py-0.5 rounded-full bg-rose-500 text-[10px] text-white shadow-lg shadow-rose-500/20 animate-pulse">@_unreadCount</span>
                     }
                 </NavLink>
             </div>
@@ -87,13 +85,18 @@
     [Inject] private INotificationService NotificationService { get; set; } = default!;
     [Inject] private ITaskService TaskService { get; set; } = default!;
 
+    protected override void OnInitialized()
+    {
+        // Subscribe early, but we can't load data yet because localStorage requires JS (OnAfterRender)
+        UserIdentity.OnUserChanged += HandleUserChanged;
+        NotificationService.OnNotificationsChanged += HandleNotificationsChanged;
+        TaskService.OnTasksChanged += HandleTasksChanged;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            UserIdentity.OnUserChanged += HandleUserChanged;
-            NotificationService.OnNotificationsChanged += HandleNotificationsChanged;
-            TaskService.OnTasksChanged += HandleTasksChanged;
             _userName = await UserIdentity.GetCurrentUserAsync();
             await LoadData();
             StateHasChanged();
@@ -102,7 +105,14 @@
 
     private async Task LoadData()
     {
+        // If we don't have a user yet, try to get it (but only if we are in/past AfterRender)
+        if (string.IsNullOrEmpty(_userName))
+        {
+            _userName = await UserIdentity.GetCurrentUserAsync();
+        }
+
         if (string.IsNullOrEmpty(_userName)) return;
+
         _unreadCount = await NotificationService.GetUnreadCountAsync(_userName);
         
         var tasks = await TaskService.GetTasksForUserAsync(_userName);
@@ -118,14 +128,26 @@
 
     private async void HandleNotificationsChanged()
     {
-        await LoadData();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await InvokeAsync(async () => {
+                await LoadData();
+                StateHasChanged();
+            });
+        }
+        catch { /* ignored */ }
     }
 
     private async void HandleTasksChanged()
     {
-        await LoadData();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await InvokeAsync(async () => {
+                await LoadData();
+                StateHasChanged();
+            });
+        }
+        catch { /* ignored */ }
     }
 
     public void Dispose()

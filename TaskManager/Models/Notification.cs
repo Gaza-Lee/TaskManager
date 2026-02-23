@@ -8,7 +8,8 @@ public enum NotificationType
     AuditHelp,
     TaskReassigned,
     StatusUpdate,
-    NeedsModification
+    NeedsModification,
+    TaskAccepted
 }
 
 public class Notification

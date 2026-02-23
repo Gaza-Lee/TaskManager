@@ -4,6 +4,8 @@
 @inject ITaskService TaskService
 @inject UserIdentityService UserIdentity
 @inject NavigationManager Navigation
+@inject TaskStateService TaskState
+@implements IDisposable
 
 <PageTitle>Completed Tasks - Task Hub</PageTitle>
 
@@ -44,23 +46,27 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach (var task in _tasks)
             {
-                <div class="h-full">
-                    <TaskCard Task="task" OnStatusChanged="LoadTasks" />
+                <div id="task-@task.Id" class="h-full @(task.Id == TaskState.ActiveTaskId ? "task-active" : "")">
+                    <TaskCard Task="task" OnStatusChanged="LoadTasks" OnOpenRemarks="t => _drawer!.Open(t)" />
                 </div>
             }
         </div>
     }
 </div>
 
+<RemarkDrawer @ref="_drawer" CurrentUser="@_currentUser" OnRemarkAdded="LoadTasks" />
+
 @code {
     private List<TaskItem>? _tasks;
+    private string? _currentUser;
+    private RemarkDrawer? _drawer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            var user = await UserIdentity.GetCurrentUserAsync();
-            if (string.IsNullOrWhiteSpace(user))
+            _currentUser = await UserIdentity.GetCurrentUserAsync();
+            if (string.IsNullOrWhiteSpace(_currentUser))
             {
                 Navigation.NavigateTo("/set-name");
             }
@@ -69,7 +75,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        TaskState.OnChange += StateHasChanged;
         await LoadTasks();
+    }
+
+    public void Dispose()
+    {
+        TaskState.OnChange -= StateHasChanged;
     }
 
     private async Task LoadTasks()

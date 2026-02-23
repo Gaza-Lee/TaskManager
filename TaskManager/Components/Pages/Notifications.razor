@@ -21,12 +21,20 @@
                 <h1 class="text-xl font-black text-white tracking-tight mb-0.5">Alert Feed</h1>
                 <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Collective Records</p>
             </div>
-            @if (_notifications != null && _notifications.Any(n => !n.IsRead))
-            {
-                <button class="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95" @onclick="MarkAllAsRead">
-                    Clear Alerts
-                </button>
-            }
+            <div class="flex items-center gap-2">
+                @if (_notifications != null && _notifications.Any(n => !n.IsRead))
+                {
+                    <button class="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-slate-500 hover:text-indigo-400 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95" @onclick="() => _showConfirmMarkRead = true">
+                        Mark All Read
+                    </button>
+                }
+                @if (_notifications != null && _notifications.Any())
+                {
+                    <button class="px-4 py-1.5 bg-white/5 hover:bg-rose-500/10 text-slate-500 hover:text-rose-500 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95" @onclick="() => _showConfirmClearAll = true">
+                        Clear All
+                    </button>
+                }
+            </div>
         </div>
 
         <div class="space-y-12">
@@ -96,9 +104,21 @@
     }
 </div>
 
+@if (_showConfirmMarkRead)
+{
+    <ConfirmationDialog Title="Mark All as Read?" Message="This will update all your unread alerts to read status." ConfirmText="PROCEED" OnConfirm="ConfirmMarkAllAsRead" OnCancel="() => _showConfirmMarkRead = false" />
+}
+
+@if (_showConfirmClearAll)
+{
+    <ConfirmationDialog Title="Clear All Alerts?" Message="This will permanently delete all your notifications. This action cannot be undone." ConfirmText="CLEAR ALL" OnConfirm="ConfirmClearAll" OnCancel="() => _showConfirmClearAll = false" />
+}
+
 @code {
     private string? _userName;
     private List<Notification>? _notifications;
+    private bool _showConfirmMarkRead;
+    private bool _showConfirmClearAll;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -130,15 +150,35 @@
             await NotificationService.MarkAsReadAsync(notification.Id);
             notification.IsRead = true;
         }
-        
-        // Navigation logic based on notification type/task
-        Navigation.NavigateTo("/my-tasks"); 
+
+        var taskId = notification.TaskId;
+        var destination = notification.Type switch
+        {
+            NotificationType.TaskAccepted      => $"/tasks/inprogress?highlight={taskId}",
+            NotificationType.StatusUpdate      => $"/tasks/inprogress?highlight={taskId}",
+            NotificationType.RemarkAdded       => $"/tasks/inprogress?highlight={taskId}",
+            NotificationType.AuditHelp         => $"/tasks/inprogress?highlight={taskId}",
+            NotificationType.NeedsModification => $"/tasks/inprogress?highlight={taskId}",
+            NotificationType.TaskReassigned    => $"/tasks/available?highlight={taskId}",
+            _                                  => $"/tasks/inprogress?highlight={taskId}"
+        };
+
+        Navigation.NavigateTo(destination);
     }
 
-    private async Task MarkAllAsRead()
+    private async Task ConfirmMarkAllAsRead()
     {
+        _showConfirmMarkRead = false;
         if (string.IsNullOrWhiteSpace(_userName)) return;
         await NotificationService.MarkAllAsReadAsync(_userName);
+        await LoadData();
+    }
+
+    private async Task ConfirmClearAll()
+    {
+        _showConfirmClearAll = false;
+        if (string.IsNullOrWhiteSpace(_userName)) return;
+        await NotificationService.ClearAllNotificationsAsync(_userName);
         await LoadData();
     }
 
@@ -148,6 +188,8 @@
         NotificationType.TaskReassigned => "bi-person-badge",
         NotificationType.AuditHelp => "bi-exclamation-triangle",
         NotificationType.StatusUpdate => "bi-check-circle",
+        NotificationType.NeedsModification => "bi-exclamation-triangle-fill",
+        NotificationType.TaskAccepted => "bi-person-check",
         _ => "bi-bell"
     };
 
@@ -157,6 +199,8 @@
         NotificationType.TaskReassigned => "text-info",
         NotificationType.AuditHelp => "text-danger",
         NotificationType.StatusUpdate => "text-success",
+        NotificationType.NeedsModification => "text-warning",
+        NotificationType.TaskAccepted => "text-indigo-400",
         _ => "text-white"
     };
 

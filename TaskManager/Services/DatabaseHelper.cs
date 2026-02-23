@@ -17,8 +17,14 @@ public static class DatabaseHelper
         
         var connection = db.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open) connection.Open();
-        
+
         using var command = connection.CreateCommand();
+
+        // Enable WAL mode for concurrent Blazor circuit safety
+        command.CommandText = "PRAGMA journal_mode=WAL;";
+        command.ExecuteNonQuery();
+        command.CommandText = "PRAGMA synchronous=NORMAL;";
+        command.ExecuteNonQuery();
         
         // 1. Repair/Expand Tasks Table
         command.CommandText = "PRAGMA table_info(Tasks);";

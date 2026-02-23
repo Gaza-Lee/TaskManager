@@ -4,6 +4,10 @@
 @inject ITaskService TaskService
 @inject UserIdentityService UserIdentity
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject TaskStateService TaskState
+@inject BrowserService Browser
+@implements IDisposable
 
 <PageTitle>Available Tasks - Task Hub</PageTitle>
 
@@ -48,32 +52,53 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach (var task in _tasks)
             {
-                <div class="h-full">
-                    <TaskCard Task="task" OnStatusChanged="LoadTasks" />
+                var isHighlighted = task.Id.ToString() == HighlightId;
+                <div id="task-@task.Id" class="h-full @(isHighlighted ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-slate-950 rounded-2xl" : "") @(task.Id == TaskState.ActiveTaskId ? "task-active" : "")">
+                    <TaskCard Task="task" OnStatusChanged="LoadTasks" OnOpenRemarks="t => _drawer!.Open(t)" />
                 </div>
             }
         </div>
     }
 </div>
 
+<RemarkDrawer @ref="_drawer" CurrentUser="@_currentUser" OnRemarkAdded="LoadTasks" />
+
 @code {
+    [SupplyParameterFromQuery(Name = "highlight")]
+    public string? HighlightId { get; set; }
+
     private List<TaskItem>? _tasks;
+    private string? _currentUser;
+    private RemarkDrawer? _drawer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             var user = await UserIdentity.GetCurrentUserAsync();
+            _currentUser = user;
             if (string.IsNullOrWhiteSpace(user))
             {
                 Navigation.NavigateTo("/set-name");
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(HighlightId))
+            {
+                await Browser.ScrollToElementAsync($"task-{HighlightId}");
             }
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
+        TaskState.OnChange += StateHasChanged;
         await LoadTasks();
+    }
+
+    public void Dispose()
+    {
+        TaskState.OnChange -= StateHasChanged;
     }
 
     private async Task LoadTasks()

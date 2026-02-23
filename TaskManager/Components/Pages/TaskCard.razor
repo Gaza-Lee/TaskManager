@@ -102,9 +102,9 @@
 
                 @{
                     var roleLabel = Task.Status switch {
-                        TaskItemStatus.Available => "assigned to:",
-                        TaskItemStatus.InProgress => "accepted by:",
-                        _ => "completed by:"
+                        TaskItemStatus.Available => "Assigned to:",
+                        TaskItemStatus.InProgress => "Accepted by:",
+                        _ => "Completed by:"
                     };
                     var roleParticpant = Task.Status switch {
                         TaskItemStatus.Available => Task.AssignedTo,
@@ -138,7 +138,7 @@
             else if (Task.Status == TaskItemStatus.InProgress)
             {
                 <div class="flex gap-2">
-                    @if (Task.AssignedTo.Equals(_currentUser, StringComparison.OrdinalIgnoreCase))
+                    @if (IsCurrentUserTheWorker)
                     {
                         <button class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] tracking-widest shadow-lg shadow-emerald-600/20 transition-all active:scale-95 uppercase" @onclick="() => _showConfirmDone = true">
                             <i class="bi bi-check-circle-fill mr-2"></i>Done
@@ -169,56 +169,13 @@
                 </button>
             }
 
-            <button class="w-full text-[9px] text-slate-600 hover:text-white mt-1 flex items-center justify-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity" @onclick="() => _showRemarks = !_showRemarks">
-                <i class="bi @(_showRemarks ? "bi-chat-fill" : "bi-chat")"></i> 
+            <button class="w-full text-[9px] text-slate-500 hover:text-indigo-400 mt-1 flex items-center justify-center gap-1.5 opacity-60 hover:opacity-100 transition-all border border-white/5 hover:border-indigo-500/30 rounded-xl py-1.5" @onclick="() => OnOpenRemarks.InvokeAsync(Task)">
+                <i class="bi bi-chat-right-text"></i>
                 <span>@(Task.Remarks?.Count ?? 0) @(Task.Remarks?.Count == 1 ? "Remark" : "Remarks")</span>
             </button>
         </div>
     </div>
 
-    @if (_showRemarks)
-    {
-        <div class="mt-4 p-4 rounded-2xl bg-black/30 border border-white/5 shadow-inner animate-in slide-in-from-top-2 duration-300">
-            <div class="text-[9px] font-bold text-slate-500 mb-3 uppercase tracking-widest flex justify-between items-center">
-                <span><i class="bi bi-chat-right-text mr-2"></i>CONVERSATION</span>
-                <span class="px-2 py-0.5 rounded-md bg-white/5 text-[8px]">@(Task.Remarks?.Count ?? 0)</span>
-            </div>
-            
-            <div class="space-y-4 mb-4 max-h-64 overflow-y-auto custom-scrollbar pr-1">
-                @if (Task.Remarks == null || !Task.Remarks.Any())
-                {
-                    <div class="text-center py-6 opacity-30">
-                        <i class="bi bi-chat-dots block text-2xl mb-2"></i>
-                        <p class="text-[10px]">No remarks yet.</p>
-                    </div>
-                }
-                else
-                {
-                    @foreach (var remark in Task.Remarks.OrderBy(r => r.CreatedAt))
-                    {
-                        var isMe = remark.Author == _currentUser;
-                        <div class="flex flex-col @(isMe ? "items-end" : "items-start")">
-                            <div class="flex items-center gap-2 mb-1 px-1">
-                                <span class="text-[9px] font-bold @(isMe ? "text-indigo-400" : "text-slate-300")">@remark.Author</span>
-                                <span class="text-[8px] text-slate-600">@remark.CreatedAt.ToString("HH:mm")</span>
-                            </div>
-                            <div class="px-3 py-2 rounded-2xl text-xs leading-relaxed break-words max-w-[90%] shadow-sm @(isMe ? "bg-indigo-600/20 text-indigo-100 border border-indigo-500/20 rounded-tr-none" : "bg-slate-800 text-slate-200 border border-white/5 rounded-tl-none")">
-                                @remark.Content
-                            </div>
-                        </div>
-                    }
-                }
-            </div>
-            <div class="flex gap-2">
-                <input type="text" class="flex-1 min-w-0 bg-white/5 border border-white/10 text-white text-[11px] px-4 py-2 rounded-full focus:outline-none focus:border-indigo-500/50 transition-colors" 
-                       placeholder="Add a remark..." 
-                       @bind="_newRemarkContent" @onkeyup='async (e) => { if(e.Key == "Enter") await AddRemark(); }' />
-                <button class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all" @onclick="AddRemark">
-                    <i class="bi bi-send-fill text-[10px]"></i>
-                </button>
-            </div>
-        </div>
-    }
 </div>
 
 @if (_showConfirmAccept)
@@ -320,17 +277,15 @@
 @code {
     [Parameter] public TaskItem Task { get; set; } = default!;
     [Parameter] public EventCallback OnStatusChanged { get; set; }
+    [Parameter] public EventCallback<TaskItem> OnOpenRemarks { get; set; }
 
     private string? _currentUser;
     private bool _showConfirmAccept;
     private bool _showConfirmDone;
     private string _completionRemark = "";
-    
+
     private bool _isRequestingHelp;
     private string _helpDetails = "";
-    
-    private bool _showRemarks;
-    private string _newRemarkContent = "";
 
     private bool _isAuditing;
     private string _auditRemark = "";
@@ -339,6 +294,11 @@
     private bool _isReopening;
     private string _reopenReason = "";
     private bool _showConfirmDelete;
+
+    private bool IsCurrentUserTheWorker =>
+        !string.IsNullOrWhiteSpace(_currentUser) &&
+        (Task.AssignedTo.Equals(_currentUser, StringComparison.OrdinalIgnoreCase) ||
+         Task.AcceptedBy.Equals(_currentUser, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -428,21 +388,6 @@
         await OnStatusChanged.InvokeAsync();
     }
 
-    private async Task AddRemark()
-    {
-        if (string.IsNullOrWhiteSpace(_newRemarkContent) || string.IsNullOrWhiteSpace(_currentUser)) return;
-
-        var remark = new TaskRemark {
-            Author = _currentUser,
-            Content = _newRemarkContent
-        };
-
-        await TaskService.AddRemarkAsync(Task.Id, remark);
-        Task.Remarks.Add(remark);
-        _newRemarkContent = "";
-        StateHasChanged();
-    }
-
     private async Task ConfirmReopen()
     {
         if (string.IsNullOrWhiteSpace(_reopenReason)) return;
@@ -453,9 +398,9 @@
         _reopenReason = string.Empty;
 
         Task.Status = TaskItemStatus.InProgress;
-        Task.NeedsModification = false;
+        Task.NeedsModification = true;
         Task.NeedsHelp = false;
-        Task.HelpDetails = string.Empty;
+        Task.HelpDetails = reason;
         Task.AuditRemark = string.Empty;
         
         await TaskService.AddRemarkAsync(Task.Id, new TaskRemark {

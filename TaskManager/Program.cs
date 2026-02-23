@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using TaskManager.Components;
 using TaskManager.Data;
 using TaskManager.Services;
-using System.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +20,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // User identity - lightweight localStorage wrapper
 builder.Services.AddScoped<UserIdentityService>();
+builder.Services.AddScoped<TaskStateService>();
+builder.Services.AddScoped<BrowserService>();
 
 try 
 {

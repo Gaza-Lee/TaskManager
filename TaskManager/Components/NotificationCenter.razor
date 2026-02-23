@@ -64,6 +64,8 @@
     }
 </div>
 
+@implements IDisposable
+
 @if (_showDropdown)
 {
     <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1040;" @onclick="() => _showDropdown = false"></div>
@@ -78,6 +80,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        NotificationService.OnNotificationsChanged += HandleNotificationsChanged;
         await LoadData();
     }
 
@@ -115,6 +118,7 @@
         NotificationType.AuditHelp => "bi-exclamation-triangle",
         NotificationType.StatusUpdate => "bi-check-circle",
         NotificationType.NeedsModification => "bi-exclamation-triangle-fill",
+        NotificationType.TaskAccepted => "bi-person-check",
         _ => "bi-bell"
     };
 
@@ -125,6 +129,7 @@
         NotificationType.AuditHelp => "text-danger",
         NotificationType.StatusUpdate => "text-success",
         NotificationType.NeedsModification => "text-warning",
+        NotificationType.TaskAccepted => "text-indigo-400",
         _ => "text-white"
     };
 
@@ -135,5 +140,22 @@
         if (span.TotalHours < 1) return $"{(int)span.TotalMinutes}m ago";
         if (span.TotalDays < 1) return $"{(int)span.TotalHours}h ago";
         return dt.ToString("MMM dd");
+    }
+
+    private async void HandleNotificationsChanged()
+    {
+        try
+        {
+            await InvokeAsync(async () => {
+                await LoadData();
+                StateHasChanged();
+            });
+        }
+        catch { /* ignored */ }
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotificationsChanged -= HandleNotificationsChanged;
     }
 }

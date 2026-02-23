@@ -8,6 +8,7 @@ public interface INotificationService
     Task AddNotificationAsync(Notification notification);
     Task MarkAsReadAsync(Guid notificationId);
     Task MarkAllAsReadAsync(string userName);
+    Task ClearAllNotificationsAsync(string userName);
     Task<int> GetUnreadCountAsync(string userName);
     event Action? OnNotificationsChanged;
 }

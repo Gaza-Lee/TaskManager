@@ -1,0 +1,177 @@
+@using TaskManager.Models
+@using TaskManager.Services
+@inject ITaskService TaskService
+@inject BrowserService Browser
+@inject TaskStateService TaskState
+
+@if (_isOpen && _task != null)
+{
+    <!-- Backdrop -->
+    <div class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm @(_isClosing ? "backdrop-fade-out" : "backdrop-fade-in")"
+         @onclick="Close"></div>
+
+    <!-- Drawer panel -->
+    <div class="fixed top-0 right-0 z-50 h-full w-full max-w-md flex flex-col
+                bg-slate-900 border-l border-white/10 shadow-2xl
+                @(_isClosing ? "drawer-slide-out" : "drawer-slide-in")">
+
+        <!-- Header -->
+        <div class="flex items-start justify-between p-5 border-b border-white/10 flex-shrink-0
+                    bg-gradient-to-r from-slate-900 to-indigo-950/30">
+            <div class="flex-1 min-w-0 pr-4">
+                <p class="text-[9px] font-black uppercase tracking-[0.25em] text-indigo-400 mb-1.5 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                    Conversation
+                </p>
+                <h2 class="text-base font-black text-white leading-snug line-clamp-2">@_task.Title</h2>
+                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                    @(_task.Remarks?.Count ?? 0) @(_task.Remarks?.Count == 1 ? "remark" : "remarks")
+                </p>
+            </div>
+            <button class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl
+                           text-slate-500 hover:text-white hover:bg-white/10 hover:rotate-90
+                           transition-all duration-200"
+                    @onclick="Close">
+                <i class="bi bi-x-lg text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Messages -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar" id="remark-scroll-area">
+            @if (_task.Remarks == null || !_task.Remarks.Any())
+            {
+                <div class="flex flex-col items-center justify-center h-full text-center py-10 opacity-30">
+                    <i class="bi bi-chat-dots text-5xl mb-4 text-slate-500"></i>
+                    <p class="text-xs text-slate-500 font-black uppercase tracking-widest">No remarks yet</p>
+                    <p class="text-[10px] text-slate-600 mt-1">Start the conversation below.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var item in _task.Remarks.OrderBy(r => r.CreatedAt).Select((r, index) => new { Remark = r, Index = index }))
+                {
+                    var remark = item.Remark;
+                    var isMe = remark.Author == CurrentUser;
+                    var delay = Math.Min(item.Index * 40, 400);
+                    <div class="flex flex-col @(isMe ? "items-end" : "items-start") message-pop"
+                         style="animation-delay: @(delay)ms">
+                        <div class="flex items-center gap-2 mb-1.5 px-1">
+                            @if (!isMe)
+                            {
+                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-slate-700 to-slate-600
+                                            flex items-center justify-center flex-shrink-0 border border-white/5 shadow">
+                                    <i class="bi bi-person-fill text-[9px] text-slate-400"></i>
+                                </div>
+                            }
+                            <span class="text-[9px] font-black @(isMe ? "text-indigo-400" : "text-slate-300")">
+                                @remark.Author
+                            </span>
+                            <span class="text-[8px] text-slate-600">
+                                @remark.CreatedAt.ToString("MMM dd, HH:mm")
+                            </span>
+                            @if (isMe)
+                            {
+                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-700 to-indigo-600
+                                            flex items-center justify-center flex-shrink-0 border border-indigo-500/20 shadow">
+                                    <i class="bi bi-person-fill text-[9px] text-indigo-300"></i>
+                                </div>
+                            }
+                        </div>
+                        <div class="px-4 py-2.5 rounded-2xl text-xs leading-relaxed break-words max-w-[85%] shadow-md
+                                    @(isMe
+                                        ? "bg-indigo-600/25 text-indigo-50 border border-indigo-500/30 rounded-tr-sm shadow-indigo-900/30"
+                                        : "bg-slate-800/80 text-slate-200 border border-white/8 rounded-tl-sm")">
+                            @remark.Content
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Input -->
+        <div class="p-4 border-t border-white/10 flex-shrink-0 bg-slate-950/60 backdrop-blur-md">
+            <div class="flex gap-2 items-center">
+                <input type="text"
+                       class="flex-1 bg-white/5 border border-white/10 text-white text-xs px-4 py-3
+                              rounded-2xl focus:outline-none focus:border-indigo-500/50 focus:bg-white/8
+                              transition-all placeholder:text-slate-600"
+                       placeholder="Add a remark..."
+                       @bind="_newRemark"
+                       @bind:event="oninput"
+                       @onkeyup='async (e) => { if (e.Key == "Enter") await SubmitRemark(); }' />
+                <button id="remark-send-btn"
+                        class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-2xl
+                               bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-900/40
+                               transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled="@string.IsNullOrWhiteSpace(_newRemark)"
+                        @onclick="SubmitRemark">
+                    <i class="bi bi-send-fill text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string? CurrentUser { get; set; }
+    [Parameter] public EventCallback OnRemarkAdded { get; set; }
+
+    private bool _isOpen;
+    private bool _isClosing;
+    private TaskItem? _task;
+    private string _newRemark = "";
+
+    public async Task Open(TaskItem task)
+    {
+        _isClosing = false;
+        _task = task;
+        _isOpen = true;
+        _newRemark = "";
+        
+        TaskState.SetActiveTask(task.Id);
+        StateHasChanged();
+        
+        // Scroll to bottom after render so newest message is visible
+        await Task.Delay(50);
+        await Browser.ScrollToBottomAsync("remark-scroll-area");
+    }
+
+    public async Task Close()
+    {
+        // Play close animation first, then remove from DOM
+        _isClosing = true;
+        StateHasChanged();
+        await Task.Delay(220);
+        
+        _isOpen = false;
+        _isClosing = false;
+        _task = null;
+        
+        TaskState.ClearActiveTask();
+        StateHasChanged();
+    }
+
+    private async Task SubmitRemark()
+    {
+        if (string.IsNullOrWhiteSpace(_newRemark) || string.IsNullOrWhiteSpace(CurrentUser) || _task == null)
+            return;
+
+        var remark = new TaskRemark
+        {
+            Author = CurrentUser,
+            Content = _newRemark.Trim()
+        };
+
+        await TaskService.AddRemarkAsync(_task.Id, remark);
+        _task.Remarks.Add(remark);
+        _newRemark = "";
+
+        // Bounce the send button and scroll to new message
+        await Browser.AnimateSendButtonAsync("remark-send-btn");
+        StateHasChanged();
+        await Task.Delay(30);
+        await Browser.ScrollToBottomAsync("remark-scroll-area");
+
+        await OnRemarkAdded.InvokeAsync();
+    }
+}
