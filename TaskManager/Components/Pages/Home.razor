@@ -98,14 +98,16 @@
                                     }
                                     @{
                                         var roleLabel = task.Status switch {
-                                            TaskItemStatus.Available => "Assigned to:",
+                                            TaskItemStatus.Available => "assigned to:",
                                             TaskItemStatus.InProgress => "accepted by:",
                                             _ => "completed by:"
                                         };
                                         var participant = task.Status switch {
                                             TaskItemStatus.Available => task.AssignedTo,
-                                            TaskItemStatus.InProgress => task.AcceptedBy,
-                                            _ => task.CompletedBy
+                                            TaskItemStatus.InProgress => !string.IsNullOrWhiteSpace(task.AcceptedBy) ? task.AcceptedBy : task.AssignedTo,
+                                            _ => !string.IsNullOrWhiteSpace(task.CompletedBy) 
+                                                 ? task.CompletedBy 
+                                                 : (!string.IsNullOrWhiteSpace(task.AcceptedBy) ? task.AcceptedBy : task.AssignedTo)
                                         };
                                     }
                                     <span class="text-[9px] text-slate-500 italic ml-2">@roleLabel @participant</span>

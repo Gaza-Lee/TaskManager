@@ -63,6 +63,8 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         existing.HelpDetails = task.HelpDetails;
         existing.AuditRemark = task.AuditRemark;
         existing.ModificationHistory = task.ModificationHistory;
+        existing.AcceptedBy = task.AcceptedBy;
+        existing.CompletedBy = task.CompletedBy;
 
         // Check for state changes to trigger notifications
         if (task.AssignedTo.ToLower() != existing.AssignedTo.ToLower() && !string.IsNullOrWhiteSpace(task.AssignedTo))
@@ -120,19 +122,24 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         }
 
         existing.Status = task.Status;
+        existing.CompletedAt = task.CompletedAt; // This line is moved here to ensure it's persisted if explicitly set in the incoming task, after status-based logic.
 
         await db.SaveChangesAsync();
         OnTasksChanged?.Invoke();
     }
 
-    public async Task DeleteTaskAsync(Guid taskId)
+    public async Task DeleteTaskAsync(Guid taskId, string userName)
     {
         var task = await db.Tasks.FindAsync(taskId);
         if (task is not null)
         {
-            db.Tasks.Remove(task);
-            await db.SaveChangesAsync();
-            OnTasksChanged?.Invoke();
+            // Only the creator can delete the task
+            if (task.AssignedBy.Equals(userName, StringComparison.OrdinalIgnoreCase))
+            {
+                db.Tasks.Remove(task);
+                await db.SaveChangesAsync();
+                OnTasksChanged?.Invoke();
+            }
         }
     }
 

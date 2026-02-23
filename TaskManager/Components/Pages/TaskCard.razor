@@ -96,27 +96,29 @@
         <div class="pt-3 border-t border-white/5 mb-4">
             <div class="flex flex-col gap-3">
                 <div class="flex items-center justify-between">
-                    <div class="text-[8px] text-slate-500 uppercase font-black tracking-widest">Assigned By:</div>
+                    <div class="text-[8px] text-slate-500 font-bold tracking-widest">Assigned by:</div>
                     <div class="text-[11px] text-white font-bold">@Task.AssignedBy</div>
                 </div>
 
                 @{
                     var roleLabel = Task.Status switch {
-                        TaskItemStatus.Available => "Assigned to:",
+                        TaskItemStatus.Available => "assigned to:",
                         TaskItemStatus.InProgress => "accepted by:",
                         _ => "completed by:"
                     };
                     var roleParticpant = Task.Status switch {
                         TaskItemStatus.Available => Task.AssignedTo,
-                        TaskItemStatus.InProgress => Task.AcceptedBy,
-                        _ => Task.CompletedBy
+                        TaskItemStatus.InProgress => !string.IsNullOrWhiteSpace(Task.AcceptedBy) ? Task.AcceptedBy : Task.AssignedTo,
+                        _ => !string.IsNullOrWhiteSpace(Task.CompletedBy) 
+                             ? Task.CompletedBy 
+                             : (!string.IsNullOrWhiteSpace(Task.AcceptedBy) ? Task.AcceptedBy : Task.AssignedTo)
                     };
                 }
 
                 @if (!string.IsNullOrWhiteSpace(roleParticpant))
                 {
                     <div class="flex items-center justify-between">
-                        <div class="text-[8px] text-slate-500 uppercase font-black tracking-widest">@roleLabel</div>
+                        <div class="text-[8px] text-slate-500 font-bold tracking-widest">@roleLabel</div>
                         <div class="text-[11px] text-white font-bold">@roleParticpant</div>
                     </div>
                 }
@@ -310,6 +312,11 @@
     </div>
 }
 
+@if (_showConfirmDelete)
+{
+    <ConfirmationDialog Title="Delete Task?" Message="Are you sure you want to permanently delete this task? This action cannot be undone." ConfirmText="DELETE" OnConfirm="ConfirmDelete" OnCancel="() => _showConfirmDelete = false" />
+}
+
 @code {
     [Parameter] public TaskItem Task { get; set; } = default!;
     [Parameter] public EventCallback OnStatusChanged { get; set; }
@@ -331,6 +338,7 @@
 
     private bool _isReopening;
     private string _reopenReason = "";
+    private bool _showConfirmDelete;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -346,7 +354,6 @@
         _showConfirmAccept = false;
         if (!string.IsNullOrWhiteSpace(_currentUser))
         {
-            Task.AssignedTo = _currentUser;
             Task.AcceptedBy = _currentUser;
         }
         Task.Status = TaskItemStatus.InProgress;
@@ -379,7 +386,6 @@
     {
         if (string.IsNullOrWhiteSpace(_currentUser)) return;
         
-        Task.AssignedTo = _currentUser;
         Task.AcceptedBy = _currentUser;
         Task.NeedsHelp = false;
         Task.NeedsModification = false;
@@ -478,9 +484,18 @@
         await OnStatusChanged.InvokeAsync();
     }
 
-    private async Task DeleteTask()
+    private async Task ConfirmDelete()
     {
-        await TaskService.DeleteTaskAsync(Task.Id);
-        await OnStatusChanged.InvokeAsync();
+        _showConfirmDelete = false;
+        if (!string.IsNullOrWhiteSpace(_currentUser))
+        {
+            await TaskService.DeleteTaskAsync(Task.Id, _currentUser);
+            await OnStatusChanged.InvokeAsync();
+        }
+    }
+
+    private void DeleteTask()
+    {
+        _showConfirmDelete = true;
     }
 }

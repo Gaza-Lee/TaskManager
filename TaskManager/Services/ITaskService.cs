@@ -10,7 +10,7 @@ public interface ITaskService
     Task<List<TaskItem>> GetTasksForUserAsync(string userName);
     Task AddTaskAsync(TaskItem task);
     Task UpdateTaskAsync(TaskItem task);
-    Task DeleteTaskAsync(Guid taskId);
+    Task DeleteTaskAsync(Guid taskId, string userName);
     Task AddRemarkAsync(Guid taskId, TaskRemark remark);
     event Action? OnTasksChanged;
 }
