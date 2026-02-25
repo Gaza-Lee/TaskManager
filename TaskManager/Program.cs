@@ -9,10 +9,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// SQLite database
-var dbPath = Path.Combine(builder.Environment.ContentRootPath, "tasks.db");
+// SQL Server database
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
 builder.Services.AddDbContext<TaskDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}"));
+    options.UseSqlServer(connectionString));
 
 // Services - Scoped to match DbContext lifetime
 builder.Services.AddScoped<ITaskService, TaskService>();
@@ -49,7 +51,19 @@ try
 }
 catch (Exception ex)
 {
-    var logPath = Path.Combine(builder.Environment.ContentRootPath, "startup_log.txt");
-    File.WriteAllText(logPath, $"[{DateTime.Now}] CRITICAL STARTUP ERROR:\n{ex.Message}\n\n{ex.StackTrace}");
-    throw; // Re-throw to ensure IIS still registers the failure
+    // Try to write a startup log. Use %TEMP% as a safe fallback — ContentRoot may not be
+    // writable by the IIS app pool identity, and a failure here must NOT mask the real error.
+    try
+    {
+        var logPath = Path.Combine(
+            builder.Environment.ContentRootPath, "App_Data", "startup_log.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        File.WriteAllText(logPath,
+            $"[{DateTime.Now:u}] CRITICAL STARTUP ERROR:\n{ex.Message}\n\n{ex.StackTrace}");
+    }
+    catch
+    {
+        // Swallow logging failure — the real exception will still propagate below.
+    }
+    throw; // Re-throw so IIS still registers the failure (Event Viewer / stdout log)
 }
