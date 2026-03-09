@@ -6,6 +6,7 @@ namespace TaskManager.Services;
 public interface ITaskService
 {
     Task<List<TaskItem>> GetTasksAsync();
+    Task<TaskItem?> GetTaskAsync(Guid id);
     Task<List<TaskItem>> SearchTasksAsync(string query);
     Task<List<TaskItem>> GetTasksForUserAsync(string userName);
     Task AddTaskAsync(TaskItem task);

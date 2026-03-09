@@ -13,7 +13,7 @@ builder.Services.AddRazorComponents()
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-builder.Services.AddDbContext<TaskDbContext>(options =>
+builder.Services.AddDbContextFactory<TaskDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // Services - Scoped to match DbContext lifetime
@@ -29,8 +29,11 @@ try
 {
     var app = builder.Build();
 
-    // Ensure the database and tables exist
-    DatabaseHelper.Initialize(app.Services);
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<TaskDbContext>();
+        db.Database.Migrate(); // Applies pending EF Core Migrations automatically
+    }
 
     // Configure the HTTP request pipeline.
     if (!app.Environment.IsDevelopment())

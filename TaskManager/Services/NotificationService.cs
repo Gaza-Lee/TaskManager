@@ -4,12 +4,14 @@ using TaskManager.Models;
 
 namespace TaskManager.Services;
 
-public class NotificationService(TaskDbContext db) : INotificationService
+public class NotificationService(IDbContextFactory<TaskDbContext> dbFactory) : INotificationService
 {
     public event Action? OnNotificationsChanged;
+    public void RaiseNotificationsChanged() => OnNotificationsChanged?.Invoke();
 
     public async Task<List<Notification>> GetNotificationsForUserAsync(string userName)
     {
+        using var db = dbFactory.CreateDbContext();
         return await db.Notifications
             .AsNoTracking()
             .Where(n => n.Recipient.ToLower() == userName.ToLower())
@@ -18,17 +20,18 @@ public class NotificationService(TaskDbContext db) : INotificationService
             .ToListAsync();
     }
 
-    public async Task AddNotificationAsync(Notification notification)
+    public async Task EnqueueNotificationAsync(Notification notification)
     {
+        using var db = dbFactory.CreateDbContext();
         notification.Id = Guid.NewGuid();
         notification.CreatedAt = DateTime.UtcNow;
         db.Notifications.Add(notification);
         await db.SaveChangesAsync();
-        OnNotificationsChanged?.Invoke();
     }
 
     public async Task MarkAsReadAsync(Guid notificationId)
     {
+        using var db = dbFactory.CreateDbContext();
         var notification = await db.Notifications.FindAsync(notificationId);
         if (notification != null)
         {
@@ -40,6 +43,7 @@ public class NotificationService(TaskDbContext db) : INotificationService
 
     public async Task MarkAllAsReadAsync(string userName)
     {
+        using var db = dbFactory.CreateDbContext();
         var unread = await db.Notifications
             .Where(n => n.Recipient.ToLower() == userName.ToLower() && !n.IsRead)
             .ToListAsync();
@@ -51,6 +55,7 @@ public class NotificationService(TaskDbContext db) : INotificationService
 
     public async Task ClearAllNotificationsAsync(string userName)
     {
+        using var db = dbFactory.CreateDbContext();
         var notifications = await db.Notifications
             .Where(n => n.Recipient.ToLower() == userName.ToLower())
             .ToListAsync();
@@ -62,6 +67,7 @@ public class NotificationService(TaskDbContext db) : INotificationService
 
     public async Task<int> GetUnreadCountAsync(string userName)
     {
+        using var db = dbFactory.CreateDbContext();
         return await db.Notifications
             .CountAsync(n => n.Recipient.ToLower() == userName.ToLower() && !n.IsRead);
     }

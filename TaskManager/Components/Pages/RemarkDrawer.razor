@@ -3,6 +3,7 @@
 @inject ITaskService TaskService
 @inject BrowserService Browser
 @inject TaskStateService TaskState
+@implements IDisposable
 
 @if (_isOpen && _task != null)
 {
@@ -124,11 +125,12 @@
     public async Task Open(TaskItem task)
     {
         _isClosing = false;
-        _task = task;
+        // Fetch fresh copy just in case
+        _task = await TaskService.GetTaskAsync(task.Id) ?? task;
         _isOpen = true;
         _newRemark = "";
         
-        TaskState.SetActiveTask(task.Id);
+        TaskState.SetActiveTask(_task.Id);
         StateHasChanged();
         
         // Scroll to bottom after render so newest message is visible
@@ -163,15 +165,49 @@
         };
 
         await TaskService.AddRemarkAsync(_task.Id, remark);
-        _task.Remarks.Add(remark);
+        // The event handler will fetch the newly added remark and update the UI
         _newRemark = "";
 
-        // Bounce the send button and scroll to new message
+        // Bounce the send button
         await Browser.AnimateSendButtonAsync("remark-send-btn");
-        StateHasChanged();
-        await Task.Delay(30);
-        await Browser.ScrollToBottomAsync("remark-scroll-area");
-
         await OnRemarkAdded.InvokeAsync();
+    }
+
+    protected override void OnInitialized()
+    {
+        TaskService.OnTasksChanged += HandleTasksChanged;
+    }
+
+    public void Dispose()
+    {
+        TaskService.OnTasksChanged -= HandleTasksChanged;
+    }
+
+    private async void HandleTasksChanged()
+    {
+        if (_isOpen && _task != null)
+        {
+            try
+            {
+                await InvokeAsync(async () => {
+                    var latestTask = await TaskService.GetTaskAsync(_task.Id);
+                    if (latestTask != null)
+                    {
+                        var previousRemarksCount = _task.Remarks?.Count ?? 0;
+                        var newRemarksCount = latestTask.Remarks?.Count ?? 0;
+                        
+                        _task = latestTask;
+                        StateHasChanged();
+
+                        if (newRemarksCount > previousRemarksCount)
+                        {
+                            await Task.Delay(50);
+                            await Browser.ScrollToBottomAsync("remark-scroll-area");
+                        }
+                    }
+                });
+            }
+            catch { /* ignored */ }
+        }
     }
 }

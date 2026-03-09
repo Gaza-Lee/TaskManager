@@ -3,6 +3,7 @@
 @using TaskManager.Services
 @inject ITaskService TaskService
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <PageTitle>@Status Tasks - Task Hub</PageTitle>
 
@@ -63,6 +64,28 @@
     protected override async Task OnParametersSetAsync()
     {
         await LoadTasks();
+    }
+
+    protected override void OnInitialized()
+    {
+        TaskService.OnTasksChanged += HandleTasksChanged;
+    }
+
+    public void Dispose()
+    {
+        TaskService.OnTasksChanged -= HandleTasksChanged;
+    }
+
+    private async void HandleTasksChanged()
+    {
+        try
+        {
+            await InvokeAsync(async () => {
+                await LoadTasks();
+                StateHasChanged();
+            });
+        }
+        catch { /* component disposed */ }
     }
 
     private async Task LoadTasks()

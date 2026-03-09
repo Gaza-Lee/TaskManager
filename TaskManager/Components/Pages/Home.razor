@@ -165,15 +165,29 @@
 
     private async void HandleUserChanged()
     {
-        _userName = await UserIdentity.GetCurrentUserAsync();
-        await LoadTasks();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                _userName = await UserIdentity.GetCurrentUserAsync();
+                await LoadTasks();
+                StateHasChanged();
+            });
+        }
+        catch { /* component disposed */ }
     }
 
     private async void HandleTasksChanged()
     {
-        await LoadTasks();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadTasks();
+                StateHasChanged();
+            });
+        }
+        catch { /* component disposed */ }
     }
 
     public void Dispose()

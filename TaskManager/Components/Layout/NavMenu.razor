@@ -121,9 +121,16 @@
 
     private async void HandleUserChanged()
     {
-        _userName = await UserIdentity.GetCurrentUserAsync();
-        await LoadData();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                _userName = await UserIdentity.GetCurrentUserAsync();
+                await LoadData();
+                StateHasChanged();
+            });
+        }
+        catch { /* component disposed */ }
     }
 
     private async void HandleNotificationsChanged()

@@ -76,12 +76,26 @@
     protected override async Task OnInitializedAsync()
     {
         TaskState.OnChange += StateHasChanged;
+        TaskService.OnTasksChanged += HandleTasksChanged;
         await LoadTasks();
     }
 
     public void Dispose()
     {
         TaskState.OnChange -= StateHasChanged;
+        TaskService.OnTasksChanged -= HandleTasksChanged;
+    }
+
+    private async void HandleTasksChanged()
+    {
+        try
+        {
+            await InvokeAsync(async () => {
+                await LoadTasks();
+                StateHasChanged();
+            });
+        }
+        catch { /* component disposed */ }
     }
 
     private async Task LoadTasks()

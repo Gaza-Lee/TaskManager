@@ -5,12 +5,13 @@ using TaskManager.Models;
 
 namespace TaskManager.Services;
 
-public class TaskService(TaskDbContext db, INotificationService notifications) : ITaskService
+public class TaskService(IDbContextFactory<TaskDbContext> dbFactory, INotificationService notifications) : ITaskService
 {
     public event Action? OnTasksChanged;
 
     public async Task<List<TaskItem>> GetTasksAsync()
     {
+        using var db = dbFactory.CreateDbContext();
         return await db.Tasks
             .Include(t => t.Remarks)
             .AsNoTracking()
@@ -18,11 +19,21 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             .ToListAsync();
     }
 
+    public async Task<TaskItem?> GetTaskAsync(Guid id)
+    {
+        using var db = dbFactory.CreateDbContext();
+        return await db.Tasks
+            .Include(t => t.Remarks)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == id);
+    }
+
     public async Task<List<TaskItem>> SearchTasksAsync(string query)
     {
         if (string.IsNullOrWhiteSpace(query))
             return await GetTasksAsync();
 
+        using var db = dbFactory.CreateDbContext();
         var lower = query.ToLowerInvariant();
         return await db.Tasks
             .AsNoTracking()
@@ -33,6 +44,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
 
     public async Task<List<TaskItem>> GetTasksForUserAsync(string userName)
     {
+        using var db = dbFactory.CreateDbContext();
         return await db.Tasks
             .AsNoTracking()
             .Where(t => t.AssignedTo.ToLower() == userName.ToLower())
@@ -42,15 +54,18 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
 
     public async Task AddTaskAsync(TaskItem task)
     {
+        using var db = dbFactory.CreateDbContext();
         task.Id = Guid.NewGuid();
         task.CreatedAt = DateTime.UtcNow;
         db.Tasks.Add(task);
         await db.SaveChangesAsync();
         OnTasksChanged?.Invoke();
+        notifications.RaiseNotificationsChanged();
     }
 
     public async Task UpdateTaskAsync(TaskItem task)
     {
+        using var db = dbFactory.CreateDbContext();
         var existing = await db.Tasks.FindAsync(task.Id);
         if (existing is null) return;
 
@@ -75,7 +90,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         // Check for state changes to trigger notifications (use original captured values)
         if (!task.AssignedTo.Equals(originalAssignedTo, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(task.AssignedTo))
         {
-            await notifications.AddNotificationAsync(new Notification {
+            await notifications.EnqueueNotificationAsync(new Notification {
                 Recipient = task.AssignedTo,
                 TaskId = task.Id,
                 Message = $"Task '{task.Title}' has been reassigned to you.",
@@ -87,7 +102,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         {
             if (!string.IsNullOrWhiteSpace(existing.AssignedBy) && !existing.AssignedBy.Equals(task.AcceptedBy, StringComparison.OrdinalIgnoreCase))
             {
-                await notifications.AddNotificationAsync(new Notification {
+                await notifications.EnqueueNotificationAsync(new Notification {
                     Recipient = existing.AssignedBy,
                     TaskId = task.Id,
                     Message = $"{task.AcceptedBy} accepted your task '{task.Title}'.",
@@ -101,7 +116,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             existing.CompletedAt = DateTime.UtcNow;
             if (!string.IsNullOrWhiteSpace(existing.AssignedBy) && existing.AssignedBy != (task.CompletedBy ?? task.AcceptedBy))
             {
-                await notifications.AddNotificationAsync(new Notification {
+                await notifications.EnqueueNotificationAsync(new Notification {
                     Recipient = existing.AssignedBy,
                     TaskId = task.Id,
                     Message = $"{task.CompletedBy ?? task.AcceptedBy} completed '{task.Title}'. Ready for audit.",
@@ -118,7 +133,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         {
             if (!string.IsNullOrWhiteSpace(existing.AssignedBy) && existing.AssignedBy != task.AssignedTo)
             {
-                await notifications.AddNotificationAsync(new Notification {
+                await notifications.EnqueueNotificationAsync(new Notification {
                     Recipient = existing.AssignedBy,
                     TaskId = task.Id,
                     Message = $"{task.AssignedTo} requested help with '{task.Title}'.",
@@ -131,7 +146,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         {
             if (!string.IsNullOrWhiteSpace(existing.AssignedTo))
             {
-                await notifications.AddNotificationAsync(new Notification {
+                await notifications.EnqueueNotificationAsync(new Notification {
                     Recipient = existing.AssignedTo,
                     TaskId = task.Id,
                     Message = $"Modifications requested for '{task.Title}'.",
@@ -141,15 +156,15 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
         }
 
         existing.Status = task.Status;
-        // NOTE: CompletedAt is already set correctly inside the status-change branches above.
-        // Do NOT overwrite it here — that would wipe the timestamp set when status became Completed.
 
         await db.SaveChangesAsync();
         OnTasksChanged?.Invoke();
+        notifications.RaiseNotificationsChanged();
     }
 
     public async Task DeleteTaskAsync(Guid taskId, string userName)
     {
+        using var db = dbFactory.CreateDbContext();
         var task = await db.Tasks.FindAsync(taskId);
         if (task is not null)
         {
@@ -165,6 +180,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
 
     public async Task AddRemarkAsync(Guid taskId, TaskRemark remark)
     {
+        using var db = dbFactory.CreateDbContext();
         remark.TaskId = taskId;
         remark.CreatedAt = DateTime.UtcNow;
         db.Remarks.Add(remark);
@@ -177,7 +193,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             var worker = !string.IsNullOrWhiteSpace(task.AcceptedBy) ? task.AcceptedBy : task.AssignedTo;
             if (!string.IsNullOrWhiteSpace(worker) && worker != remark.Author)
             {
-                await notifications.AddNotificationAsync(new Notification {
+                await notifications.EnqueueNotificationAsync(new Notification {
                     Recipient = worker,
                     TaskId = taskId,
                     Message = $"{remark.Author} added a remark to '{task.Title}'.",
@@ -188,7 +204,7 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
             // Notify the creator if someone else commented
             if (!string.IsNullOrWhiteSpace(task.AssignedBy) && task.AssignedBy != remark.Author && task.AssignedBy != worker)
             {
-                await notifications.AddNotificationAsync(new Notification {
+                await notifications.EnqueueNotificationAsync(new Notification {
                     Recipient = task.AssignedBy,
                     TaskId = taskId,
                     Message = $"{remark.Author} added a remark to '{task.Title}'.",
@@ -199,5 +215,6 @@ public class TaskService(TaskDbContext db, INotificationService notifications) :
 
         await db.SaveChangesAsync();
         OnTasksChanged?.Invoke();
+        notifications.RaiseNotificationsChanged();
     }
 }
